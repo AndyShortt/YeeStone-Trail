@@ -3,34 +3,30 @@ import type { Profession } from "../game/types";
 export const professions: Profession[] = [
   {
     id: "finance-bro",
-    name: "Finance Bro",
+    name: "Finance Bro From Charlotte",
     location: "Charlotte, NC",
     startingVibe: 45,
-    startingMoney: 800,
-    description: "High cash, low vibe. Pressure to not overspend.",
+    startingMoney: 450, // BALANCE-PATCH-2026-09-05: was 800
   },
   {
     id: "musician",
-    name: "Musician",
+    name: "Musician From Nashville",
     location: "Nashville, TN",
     startingVibe: 65,
-    startingMoney: 400,
-    description: "High vibe, low cash. Ben Wilson vibes.",
+    startingMoney: 250, // BALANCE-PATCH-2026-09-05: was 400
   },
   {
     id: "pastor",
-    name: "Pastor",
+    name: "Pastor From Alabama",
     location: "Alabama",
     startingVibe: 60,
-    startingMoney: 500,
-    description: "Faith-based reflection options. Different travel timing.",
+    startingMoney: 300, // BALANCE-PATCH-2026-09-05: was 500
   },
   {
     id: "tech-bro",
-    name: "Tech Bro",
+    name: "Tech Bro From California",
     location: "California",
     startingVibe: 50,
-    startingMoney: 600,
-    description: "Starts west coast, arrives late. Slopes app comes naturally.",
+    startingMoney: 350, // BALANCE-PATCH-2026-09-05: was 600
   },
 ];

@@ -1,17 +1,45 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { professions } from "../data/professions";
-import type { Profession } from "../game/types";
+import type { Profession, SegmentProps } from "../game/types";
 
 const professionSelectImg = "/images/segment-0b-profession-select.png";
 
-interface ProfessionSelectProps {
-  onSelect: (profession: Profession) => void;
-}
+// Pixel-measured against the actual PNG (scanned for the card border lines),
+// not eyeballed — each card's real interior runs ~17-19% tall, and the tops
+// are ~4% / 24.5% / 45.3% / 66% (evenly spaced ~20.7% apart), not the
+// previous 23.5%-apart guess, which drifted far enough by row 4 to visibly
+// clip. Small inset from each card's own top border.
+const ROW_TOP = ["5%", "25.5%", "46%", "67%"];
+// Icon art ends at ~22.5%. Text box starts a bit before that (right-aligned
+// content only reaches as far left as it needs, so this is just headroom) —
+// widened from an earlier 25%-90% box after measuring that "Finance Bro From
+// Charlotte" needs ~65% of the square's width unwrapped at this font size,
+// which didn't fit in that box's ~62% effective width net of padding.
+const TEXT_LEFT = "20%";
+const TEXT_WIDTH = "70%"; // 20% -> 90%, safely inside each card's own border
 
-const ROW_TOP = ["6%", "29.5%", "53%", "76.5%"];
+function ProfessionSelect({ onUpdate }: SegmentProps) {
+  function handleSelect(profession: Profession) {
+    onUpdate((prev) => ({
+      ...prev,
+      profession,
+      vibePoints: profession.startingVibe,
+      money: profession.startingMoney,
+      currentSegment: "flight-time-select",
+    }));
+  }
 
-function ProfessionSelect({ onSelect }: ProfessionSelectProps) {
-  const [hovered, setHovered] = useState<Profession | null>(null);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < professions.length) {
+        handleSelect(professions[index]);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none">
@@ -23,23 +51,26 @@ function ProfessionSelect({ onSelect }: ProfessionSelectProps) {
       />
 
       {professions.map((profession, i) => (
-        <button
-          key={profession.id}
-          type="button"
-          onClick={() => onSelect(profession)}
-          onMouseEnter={() => setHovered(profession)}
-          onMouseLeave={() => setHovered(null)}
-          className="absolute left-[8%] flex h-[17%] w-[84%] items-center justify-end pr-[6%] text-right text-amber-950 font-bold cursor-pointer hover:bg-amber-900/10"
-          style={{ top: ROW_TOP[i] }}
-        >
-          {profession.name}
-        </button>
+        <div key={profession.id} className="absolute left-0 h-[17.5%] w-full" style={{ top: ROW_TOP[i] }}>
+          <span className="absolute left-[4%] top-[1%] text-2xl leading-none text-amber-950 opacity-70">
+            {i + 1}.
+          </span>
+          <button
+            type="button"
+            onClick={() => handleSelect(profession)}
+            className="absolute flex h-full cursor-pointer flex-col items-end justify-start overflow-hidden pt-[1%] pr-[1.5%] text-right text-amber-950 hover:bg-amber-900/10"
+            style={{ left: TEXT_LEFT, width: TEXT_WIDTH }}
+          >
+            <span className="text-4xl leading-none">{profession.name}</span>
+            <span className="text-2xl leading-none opacity-80">
+              Cash: ${profession.startingMoney} — Vibe: {profession.startingVibe}
+            </span>
+          </button>
+        </div>
       ))}
 
-      <div className="absolute left-[8%] top-[86%] flex h-[10%] w-[84%] items-center justify-center px-2 text-center text-xs text-amber-950">
-        {hovered
-          ? `${hovered.name} (${hovered.location}) — ${hovered.description}`
-          : "Choose your profession"}
+      <div className="absolute left-[8%] top-[86%] flex h-[10%] w-[84%] items-center justify-center overflow-hidden px-2 text-center text-2xl text-amber-950">
+        Choose Your Profession
       </div>
     </div>
   );
