@@ -1,22 +1,22 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import CabinArrival from "./components/CabinArrival";
 import CabinEvening from "./components/CabinEvening";
-import CharlotteAirport from "./components/CharlotteAirport";
-import CostcoStop from "./components/CostcoStop";
 import DenverAirport from "./components/DenverAirport";
+import DriveProgress from "./components/DriveProgress";
 import Ending from "./components/Ending";
 import EndingInjured from "./components/EndingInjured";
+import FlightProgress from "./components/FlightProgress";
 import FlightTimeSelect from "./components/FlightTimeSelect";
-import Inflight from "./components/Inflight";
 import JourneyHome from "./components/JourneyHome";
 import NameEntry from "./components/NameEntry";
 import ProfessionSelect from "./components/ProfessionSelect";
-import RentalCarDrive from "./components/RentalCarDrive";
 import SkiDay from "./components/SkiDay";
 import SkiRentalSelect from "./components/SkiRentalSelect";
 import CheckStatus from "./components/shared/CheckStatus";
 import MapScreen from "./components/shared/MapScreen";
 import TitleScreen from "./components/TitleScreen";
+import WalkToCabin from "./components/WalkToCabin";
+import WalkToResort from "./components/WalkToResort";
 import type { GamePlaythrough, SegmentId, SegmentProps } from "./game/types";
 
 function createInitialState(): GamePlaythrough {
@@ -33,9 +33,6 @@ function createInitialState(): GamePlaythrough {
     skiStyle: null,
     currentSkiDay: null,
     completedSkiDays: [],
-    reflectionCompleted: false,
-    skiChatCompleted: false,
-    restBreakUsed: false,
     dukeUncChoice: null,
     dukeUncResolved: false,
     thermalWearPurchased: false,
@@ -54,27 +51,26 @@ const segmentComponents: Record<SegmentId, ComponentType<SegmentProps>> = {
   "profession-select": ProfessionSelect,
   "flight-time-select": FlightTimeSelect,
   "ski-rental-select": SkiRentalSelect,
-  "charlotte-airport": CharlotteAirport,
-  inflight: Inflight,
+  "flight-progress": FlightProgress,
   "denver-airport": DenverAirport,
-  "costco-stop": CostcoStop,
-  "rental-car-drive": RentalCarDrive,
+  "drive-progress": DriveProgress,
   "cabin-arrival": CabinArrival,
+  "walk-to-resort": WalkToResort,
   "ski-day": SkiDay,
+  "walk-to-cabin": WalkToCabin,
   "cabin-evening": CabinEvening,
   "journey-home": JourneyHome,
   ending: Ending,
   "ending-injured": EndingInjured,
 };
 
-// § 2: Map/Status are available from any segment from charlotte-airport onward,
-// not during Segment 0's setup screens.
+// § 2: Map/Status are available from any segment from flight-progress onward,
+// not during Segment 0's setup screens. The two 7s walk screens skip chrome
+// (same as ending/ending-injured skip it) — nothing to check mid-animation.
 const SEGMENTS_WITH_CHROME = new Set<SegmentId>([
-  "charlotte-airport",
-  "inflight",
+  "flight-progress",
   "denver-airport",
-  "costco-stop",
-  "rental-car-drive",
+  "drive-progress",
   "cabin-arrival",
   "ski-day",
   "cabin-evening",
@@ -86,6 +82,15 @@ function App() {
   const [globalOverlay, setGlobalOverlay] = useState<"map" | "status" | null>(null);
   const SegmentComponent = segmentComponents[playthrough.currentSegment];
   const showChrome = SEGMENTS_WITH_CHROME.has(playthrough.currentSegment);
+
+  // The base progression screens (flight/drive) can auto-advance to the next
+  // segment on their own timer while Map/Status is open — close it on every
+  // segment change so it doesn't linger on top of a screen the player never
+  // asked to see it over (found by testing: it stayed open across the
+  // flight-progress -> denver-airport landing).
+  useEffect(() => {
+    setGlobalOverlay(null);
+  }, [playthrough.currentSegment]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">

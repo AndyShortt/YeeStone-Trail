@@ -74,7 +74,7 @@ function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   }
 
   function headToParking() {
-    onUpdate((prev) => ({ ...prev, currentSegment: "costco-stop" }));
+    onUpdate((prev) => ({ ...prev, currentSegment: "drive-progress" }));
   }
 
   function talkToCrew() {

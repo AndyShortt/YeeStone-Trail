@@ -7,7 +7,7 @@ function SkiRentalSelect({ onUpdate }: SegmentProps) {
   function choose(skiRentalLocation: "keystone" | "frisco") {
     onUpdate((prev) => {
       if (skiRentalLocation !== "keystone") {
-        return { ...prev, skiRentalLocation, currentSegment: "charlotte-airport" };
+        return { ...prev, skiRentalLocation, currentSegment: "flight-progress" };
       }
       const spend = applySpend(prev, 100);
       return {
@@ -17,7 +17,7 @@ function SkiRentalSelect({ onUpdate }: SegmentProps) {
         vibePoints: prev.vibePoints + spend.vibeDelta,
         wentBrokeTriggered: spend.wentBrokeTriggered,
         eventLog: spend.eventLogAppend ? [...prev.eventLog, spend.eventLogAppend] : prev.eventLog,
-        currentSegment: "charlotte-airport",
+        currentSegment: "flight-progress",
       };
     });
   }

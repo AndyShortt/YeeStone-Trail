@@ -12,17 +12,16 @@ function getTripInfo({ currentSegment, currentSkiDay }: GamePlaythrough): {
   location: string;
 } {
   switch (currentSegment) {
-    case "charlotte-airport":
-      return { day: "Wednesday", location: "Charlotte, NC" };
-    case "inflight":
-    case "rental-car-drive":
+    case "flight-progress":
+    case "drive-progress":
       return { day: "Wednesday", location: "In transit" };
     case "denver-airport":
-    case "costco-stop":
       return { day: "Wednesday", location: "Denver, CO" };
     case "cabin-arrival":
       return { day: "Wednesday", location: "Keystone, CO" };
+    case "walk-to-resort":
     case "ski-day":
+    case "walk-to-cabin":
     case "cabin-evening": {
       const day = currentSkiDay
         ? currentSkiDay.charAt(0).toUpperCase() + currentSkiDay.slice(1)

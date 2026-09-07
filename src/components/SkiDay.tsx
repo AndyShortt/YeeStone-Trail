@@ -75,7 +75,7 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   }
 
   function finishToEvening() {
-    onUpdate((prev) => ({ ...prev, currentSegment: "cabin-evening" }));
+    onUpdate((prev) => ({ ...prev, currentSegment: "walk-to-cabin" }));
     setResultStage(null);
     setResultData(null);
   }
@@ -186,7 +186,7 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
 
   function dismissSkipMessage() {
     setSkipMessage(null);
-    onUpdate((prev) => ({ ...prev, currentSegment: "cabin-evening" }));
+    onUpdate((prev) => ({ ...prev, currentSegment: "walk-to-cabin" }));
   }
 
   const dayLabel = playthrough.currentSkiDay ? DAY_LABEL[playthrough.currentSkiDay] : "SKI";

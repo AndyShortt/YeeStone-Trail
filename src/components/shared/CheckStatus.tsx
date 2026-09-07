@@ -53,14 +53,14 @@ function getLeaderboardLine({ completedSkiDays }: GamePlaythrough): string | nul
 
 function getDayLabel({ currentSegment, currentSkiDay }: GamePlaythrough): string {
   switch (currentSegment) {
-    case "charlotte-airport":
-    case "inflight":
+    case "flight-progress":
     case "denver-airport":
-    case "costco-stop":
-    case "rental-car-drive":
+    case "drive-progress":
     case "cabin-arrival":
       return "Wednesday";
+    case "walk-to-resort":
     case "ski-day":
+    case "walk-to-cabin":
     case "cabin-evening":
       return currentSkiDay ? capitalize(currentSkiDay) : "Keystone";
     case "journey-home":

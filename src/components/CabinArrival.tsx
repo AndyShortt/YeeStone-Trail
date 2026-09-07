@@ -108,7 +108,7 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     }
     onUpdate((prev) => ({
       ...prev,
-      currentSegment: "ski-day",
+      currentSegment: "walk-to-resort",
       currentSkiDay: prev.lostSkiDay ? "friday" : "thursday",
     }));
   }

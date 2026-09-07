@@ -109,7 +109,7 @@ function CabinEvening({ playthrough, onUpdate }: SegmentProps) {
       return {
         ...prev,
         vibePoints: prev.vibePoints - dailyPenalty,
-        currentSegment: isLastEvening ? "journey-home" : "ski-day",
+        currentSegment: isLastEvening ? "journey-home" : "walk-to-resort",
         currentSkiDay: isLastEvening ? prev.currentSkiDay : nextDay,
       };
     });

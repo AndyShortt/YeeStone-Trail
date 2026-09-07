@@ -14,13 +14,13 @@ export type SegmentId =
   | "profession-select"
   | "flight-time-select"
   | "ski-rental-select"
-  | "charlotte-airport"
-  | "inflight"
+  | "flight-progress"
   | "denver-airport"
-  | "costco-stop"
-  | "rental-car-drive"
+  | "drive-progress"
   | "cabin-arrival"
+  | "walk-to-resort"
   | "ski-day"
+  | "walk-to-cabin"
   | "cabin-evening"
   | "journey-home"
   | "ending"
@@ -70,9 +70,6 @@ export interface GamePlaythrough {
   completedSkiDays: SkiDayResult[];
 
   // One-time flags
-  reflectionCompleted: boolean;
-  skiChatCompleted: boolean;
-  restBreakUsed: boolean;
   dukeUncChoice: "unc" | "duke" | "neutral" | null;
   dukeUncResolved: boolean;
   thermalWearPurchased: boolean;
