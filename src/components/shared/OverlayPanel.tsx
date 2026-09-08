@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 
 const overlayPanelImg = "/images/ui-overlay-panel.png";
 
@@ -9,12 +9,14 @@ export interface OverlayPanelOption {
 }
 
 interface OverlayPanelProps {
-  body?: string | string[];
+  body?: ReactNode | ReactNode[];
   options?: OverlayPanelOption[];
   onDismiss?: () => void;
+  /** Overrides the body paragraphs' text-size class (default "text-lg") for this call only. */
+  bodyTextClassName?: string;
 }
 
-function OverlayPanel({ body, options, onDismiss }: OverlayPanelProps) {
+function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg" }: OverlayPanelProps) {
   const paragraphs = body === undefined ? [] : Array.isArray(body) ? body : [body];
   const hasOptions = Boolean(options && options.length > 0);
 
@@ -57,7 +59,7 @@ function OverlayPanel({ body, options, onDismiss }: OverlayPanelProps) {
 
       <div className="absolute inset-0 flex flex-col justify-center gap-1 overflow-hidden px-[8%] py-[3%] text-amber-950">
         {paragraphs.map((paragraph, i) => (
-          <p key={i} className="text-lg leading-tight">
+          <p key={i} className={`${bodyTextClassName} leading-tight`}>
             {paragraph}
           </p>
         ))}

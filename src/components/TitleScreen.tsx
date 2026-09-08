@@ -71,9 +71,11 @@ function TitleScreen({ playthrough, onUpdate }: SegmentProps) {
         <OverlayPanel
           body={[
             "It's an annual ski trip with the guys.",
-            "Make choices, keep your Vibe up, don't go broke.",
+            "Make choices, keep your Bragging Rights Level up, don't go broke.",
             "Ski hard, but a bad wipeout can end your trip early.",
+            "Watch what you eat, or you could have trouble on the slopes.",
           ]}
+          bodyTextClassName="text-[1.406rem]"
           onDismiss={() => setOverlay(null)}
         />
       )}

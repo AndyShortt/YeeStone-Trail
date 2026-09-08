@@ -221,11 +221,14 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       // instant snap to an extreme on any keypress. Fixed by testing: full
       // left-to-right traverse now takes ~0.9s, about the time NUM_LANES=5
       // lanes are spread across, so a one-lane correction is ~180ms.)
+      // Both control schemes scaled by the same 0.85 factor (15% slower) so
+      // keyboard and pointer/drag steering still feel equivalent to each
+      // other, not just one of them slowed down.
       if (s.pointerActive) {
         const diff = s.pointerTargetNorm - s.playerXNorm;
-        s.playerXNorm += diff * Math.min(1, dt * 0.012);
+        s.playerXNorm += diff * Math.min(1, dt * 0.0102);
       } else {
-        const KEY_MOVE_PER_MS = 1 / 900;
+        const KEY_MOVE_PER_MS = (1 / 900) * 0.85;
         if (s.keys.left) s.playerXNorm -= KEY_MOVE_PER_MS * dt;
         if (s.keys.right) s.playerXNorm += KEY_MOVE_PER_MS * dt;
       }
@@ -304,7 +307,8 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
 
       if (timeTextRef.current) timeTextRef.current.textContent = (elapsed / 1000).toFixed(1);
       if (feetTextRef.current) {
-        feetTextRef.current.textContent = String(Math.min(3000, Math.floor((elapsed / 1000) * 100)));
+        const cap = 3000 * routeCfg.speedMultiplier * styleCfg.speedMultiplier;
+        feetTextRef.current.textContent = String(Math.min(Math.round(cap), Math.floor((elapsed / 1000) * 100 * routeCfg.speedMultiplier * styleCfg.speedMultiplier)));
       }
 
       if (crashedNow && !s.ended) {
@@ -337,6 +341,13 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
     const s = stateRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
+    // § 14: route/style "descent speed" used to only affect obstacle-approach
+    // difficulty, never the score — a clean run always scored a flat 3000
+    // regardless of difficulty, so a perfect Black+Full-Send run could still
+    // lose to a rival's random roll (which goes up to 3999). Scaling
+    // verticalFeet by the same speed multiplier already used for difficulty
+    // means genuinely harder settings legitimately cover more ground.
+    const speedMultiplier = ROUTE_CONFIG[route].speedMultiplier * STYLE_CONFIG[skiStyle].speedMultiplier;
 
     if (phase === "crashed" && ctx) {
       let last = performance.now();
@@ -366,7 +377,7 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
 
       const timer = setTimeout(() => {
         const elapsed = performance.now() - s.runStart;
-        onComplete({ crashed: true, elapsedMs: elapsed, verticalFeet: Math.floor((elapsed / 1000) * 100) });
+        onComplete({ crashed: true, elapsedMs: elapsed, verticalFeet: Math.floor((elapsed / 1000) * 100 * speedMultiplier) });
       }, 1000);
       return () => {
         clearInterval(burstInterval);
@@ -379,7 +390,7 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
         onComplete({
           crashed: false,
           elapsedMs: RUN_DURATION_MS,
-          verticalFeet: Math.floor((RUN_DURATION_MS / 1000) * 100),
+          verticalFeet: Math.floor((RUN_DURATION_MS / 1000) * 100 * speedMultiplier),
         });
       }, 700);
       return () => clearTimeout(timer);

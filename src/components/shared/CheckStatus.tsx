@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { hungerTiers } from "../../data/hunger-tiers";
 import { vibeTiers } from "../../data/vibe-tiers";
 import type { GamePlaythrough } from "../../game/types";
@@ -30,10 +31,27 @@ function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-const PLACEMENT_LABEL: Record<"first" | "middle" | "last", string> = {
+// § 0 item 20: the chosen name is otherwise almost never shown anywhere in
+// the game — surfaced here so the status board always identifies who it's
+// about. Once Puddle Britches triggers, `displayName` itself still holds the
+// original name (it's never overwritten, see SkiDay.tsx) — struck through
+// here with the nickname below it, rather than silently replaced.
+function getNameLines({ displayName, playerName, puddleBritchesTriggered }: GamePlaythrough): ReactNode[] {
+  const name = displayName ?? playerName ?? "You";
+  if (!puddleBritchesTriggered) return [`Name: ${name}`];
+  return [
+    <>
+      Name: <span className="line-through">{name}</span>
+    </>,
+    "a.k.a. Puddle Britches",
+  ];
+}
+
+const PLACEMENT_LABEL: Record<"first" | "second" | "third" | "fourth", string> = {
   first: "1st",
-  middle: "middle",
-  last: "last",
+  second: "2nd",
+  third: "3rd",
+  fourth: "last",
 };
 
 // § 2: "Leaderboard: [only shown once at least one ski day has been completed]".
@@ -73,22 +91,28 @@ function getDayLabel({ currentSegment, currentSkiDay }: GamePlaythrough): string
 }
 
 function CheckStatus({ playthrough, onClose }: CheckStatusProps) {
-  const lines = [
-    `Vibe: ${getVibeLabel(playthrough.vibePoints)}`,
+  const lines: ReactNode[] = [
+    // § 0 item 20: adding the Name line(s) pushed the worst case (name struck
+    // through + a.k.a. line, both conditional stats, still applies once
+    // triggered) to 7 — one past the panel's proven-safe 6-line budget (found
+    // by testing, text visibly clipped at the top edge). Health+Day merged
+    // onto one line, same technique as Money+Hunger below, to claim it back.
+    ...getNameLines(playthrough),
+    `Bragging Rights Level: ${getVibeLabel(playthrough.vibePoints)}`,
     // BALANCE-PATCH-2026-09-05: Money+Hunger merged onto one line (explicit " — "
     // separator, never bare whitespace — see GAME_FLOW.md § 2) to keep the full
     // status readable within the panel's ~5-6 line capacity once the
     // conditional Incident-risk line below also applies.
     `Money: $${playthrough.money} — Hunger: ${getHungerLabel(playthrough.hungerLevel)}`,
-    `Health: ${getHealthLabel(playthrough)}`,
-    `Day: ${getDayLabel(playthrough)}`,
+    `Health: ${getHealthLabel(playthrough)} — Day: ${getDayLabel(playthrough)}`,
   ];
 
   const leaderboardLine = getLeaderboardLine(playthrough);
   if (leaderboardLine) lines.push(leaderboardLine);
 
-  if (playthrough.foodRiskCounter >= 2) {
-    lines.push("Incident risk: eating recklessly...");
+  // Once it's already happened, a forward-looking risk warning no longer makes sense.
+  if (playthrough.mealsEaten >= 2 && !playthrough.puddleBritchesTriggered) {
+    lines.push("Incident risk: something's not sitting right...");
   }
 
   return <OverlayPanel body={lines} onDismiss={onClose} />;

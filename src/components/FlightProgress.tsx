@@ -1,23 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { hungerTiers } from "../data/hunger-tiers";
-import { foodOptions } from "../data/store-items";
+import { foodOptions, getFoodLabel } from "../data/store-items";
 import { applySpend } from "../game/economy";
-import { rollBroEvent, rollFlightDelay } from "../game/rolls";
+import { rollFlightDelay } from "../game/rolls";
 import type { SegmentProps } from "../game/types";
 import { useOnEntry } from "../game/useOnEntry";
+import FlightRun from "./FlightRun";
 import OverlayPanel from "./shared/OverlayPanel";
 import ProgressStatusBar from "./shared/ProgressStatusBar";
-import TravelScene from "./shared/TravelScene";
-
-const bgImg = "/images/progress-flight-bg.png";
-const planeImg = "/images/progress-plane.png";
-const denverIconImg = "/images/progress-denver-airport-icon.png";
 
 const FLIGHT_HOURS = 5;
-const MS_PER_HOUR = 4000;
+const MS_PER_HOUR = 3000; // § 7: was 4000 — 5s shorter overall (20s -> 15s)
 const FLIGHT_DURATION_MS = FLIGHT_HOURS * MS_PER_HOUR;
-const TICK_INTERVAL_MS = 200;
+const START_SPAWN_PER_SEC = 0.8;
+const END_SPAWN_PER_SEC = 1.6;
 const ARRIVAL_PAUSE_MS = 900;
+const COLLISION_MESSAGE_MS = 1800;
 
 const FOOD_PURCHASE_CAP = 2;
 
@@ -35,58 +33,45 @@ function getHealthLabel({ injury }: { injury: { severity: "minor" | "moderate" }
 
 type Overlay = "entry-events" | "snack" | null;
 
+/**
+ * § 1: the flight is a real dodge mini-game (FlightRun), mirroring how the
+ * drive wraps DriveRun. § 5: a collision is no longer terminal — FlightRun
+ * resumes on its own after each hit (mirroring the drive), so this component
+ * just reports every hit via `onCollision` and only ever transitions segments
+ * on a genuine landing (`onFinish`).
+ */
 function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [entryMessages, setEntryMessages] = useState<string[]>([]);
   const [foodPurchases, setFoodPurchases] = useState(0);
+  const [landed, setLanded] = useState(false);
+  const [collisionMessage, setCollisionMessage] = useState<string | null>(null);
   const [weather] = useState(() => WEATHER_FLAVOR[Math.floor(Math.random() * WEATHER_FLAVOR.length)]);
   const lastHourTicked = useRef(0);
-  const landed = elapsedMs >= FLIGHT_DURATION_MS;
+  const outcomeApplied = useRef(false);
 
+  // § 4: only the flight-delay roll lives here now — the random bro-event
+  // popup is dropped for this screen (the delay message is the only popup
+  // this segment should ever show on entry).
   useOnEntry(() => {
-    const messages: string[] = [];
-    let vibeDelta = 0;
-    let lostSkiDay = playthrough.lostSkiDay;
-
-    if (rollFlightDelay(playthrough.flightTime)) {
-      messages.push("Your flight's delayed — you won't land in Denver until tomorrow.");
-      vibeDelta -= 15;
-      lostSkiDay = true;
-    }
-
-    const broEvent = rollBroEvent();
-    if (broEvent) {
-      messages.push(broEvent.message);
-      vibeDelta += broEvent.vibeDelta;
-    }
-
+    if (!rollFlightDelay(playthrough.flightTime)) return;
+    const message = "Your flight's delayed — you won't land in Denver until tomorrow.";
     onUpdate((prev) => ({
       ...prev,
-      vibePoints: prev.vibePoints + vibeDelta,
-      lostSkiDay,
-      eventLog: messages.length > 0 ? [...prev.eventLog, ...messages] : prev.eventLog,
+      vibePoints: prev.vibePoints - 8,
+      lostSkiDay: true,
+      eventLog: [...prev.eventLog, message],
     }));
-
-    if (messages.length > 0) {
-      setEntryMessages(messages);
-      setOverlay("entry-events");
-    }
+    setEntryMessages([message]);
+    setOverlay("entry-events");
   });
 
-  // Hour-by-hour progression: -5 hunger/hr (5 total = -25 flying to Denver),
-  // paused while any overlay (entry events, snack menu) is open. Only ever
-  // advances its own local clock — never touches `playthrough` state here;
-  // see the effect below for why that has to be a separate step.
-  useEffect(() => {
-    if (overlay !== null || landed) return;
-    const interval = setInterval(() => {
-      setElapsedMs((prev) => Math.min(FLIGHT_DURATION_MS, prev + TICK_INTERVAL_MS));
-    }, TICK_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [overlay, landed]);
+  function handleTick(ms: number) {
+    setElapsedMs(ms);
+  }
 
-  // Reacts to the clock above rather than living inside its updater —
+  // Reacts to `elapsedMs` rather than living inside a setState updater —
   // calling `onUpdate` (App's setState) from inside another component's own
   // `setElapsedMs` updater trips React's "Cannot update a component while
   // rendering a different component" guard and silently stalls the timer.
@@ -99,6 +84,25 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
     }
   }, [elapsedMs, onUpdate]);
 
+  function handleFinish() {
+    if (outcomeApplied.current) return;
+    outcomeApplied.current = true;
+    setLanded(true);
+  }
+
+  // § 5: repeatable now — every hit applies a small vibe penalty and shows a
+  // brief non-blocking message, but the flight just keeps going (FlightRun
+  // resumes on its own after the smoke clears). Only `handleFinish` (a real
+  // landing) is guarded as one-shot.
+  function handleCollision() {
+    onUpdate((prev) => ({
+      ...prev,
+      vibePoints: prev.vibePoints - 5,
+      eventLog: [...prev.eventLog, "Heavy Air Traffic, Going To Be A Late Landing"],
+    }));
+    setCollisionMessage("Heavy Air Traffic, Going To Be A Late Landing");
+  }
+
   useEffect(() => {
     if (!landed) return;
     const timer = setTimeout(() => {
@@ -106,6 +110,12 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
     }, ARRIVAL_PAUSE_MS);
     return () => clearTimeout(timer);
   }, [landed, onUpdate]);
+
+  useEffect(() => {
+    if (!collisionMessage) return;
+    const timer = setTimeout(() => setCollisionMessage(null), COLLISION_MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [collisionMessage]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -121,6 +131,7 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
   function buyFood(optionId: "standard" | "risky") {
     if (foodPurchases >= FOOD_PURCHASE_CAP) return;
     const food = foodOptions.find((f) => f.id === optionId)!;
+    if (playthrough.money < food.cost) return;
     onUpdate((prev) => {
       const spend = applySpend(prev, food.cost);
       return {
@@ -128,7 +139,7 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
         money: spend.money,
         vibePoints: prev.vibePoints + food.vibeDelta + spend.vibeDelta,
         hungerLevel: Math.min(100, prev.hungerLevel + food.hungerRestore),
-        foodRiskCounter: prev.foodRiskCounter + food.foodRiskIncrement,
+        mealsEaten: prev.mealsEaten + 1,
         wentBrokeTriggered: spend.wentBrokeTriggered,
         eventLog: spend.eventLogAppend ? [...prev.eventLog, spend.eventLogAppend] : prev.eventLog,
       };
@@ -140,16 +151,18 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
   const hoursRemaining = Math.max(0, FLIGHT_HOURS - Math.floor(elapsedMs / MS_PER_HOUR));
 
   return (
-    <TravelScene
-      bgSrc={bgImg}
-      bgAlt="Flying to Denver"
-      vehicleSrc={planeImg}
-      vehicleAlt="Plane"
-      progress={elapsedMs / FLIGHT_DURATION_MS}
-      landmarkSrc={denverIconImg}
-      landmarkAlt="Denver Airport"
-    >
-      {overlay === null && !landed && (
+    <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
+      <FlightRun
+        durationMs={FLIGHT_DURATION_MS}
+        startSpawnPerSec={START_SPAWN_PER_SEC}
+        endSpawnPerSec={END_SPAWN_PER_SEC}
+        paused={overlay !== null}
+        onTick={handleTick}
+        onCollision={handleCollision}
+        onFinish={handleFinish}
+      />
+
+      {overlay === null && !landed && !collisionMessage && (
         <div className="absolute inset-x-0 bottom-[16%] bg-amber-950/85 px-[3%] py-1 text-center text-amber-100">
           Press ENTER to grab a snack
         </div>
@@ -173,15 +186,17 @@ function FlightProgress({ playthrough, onUpdate }: SegmentProps) {
           body="Grab a snack from the cart:"
           options={[
             ...foodOptions.map((food) => ({
-              label: `${food.label} — $${food.cost}`,
+              label: `${getFoodLabel(food.id)} — $${food.cost}`,
               onSelect: () => buyFood(food.id),
-              disabled: foodPurchases >= FOOD_PURCHASE_CAP,
+              disabled: foodPurchases >= FOOD_PURCHASE_CAP || playthrough.money < food.cost,
             })),
             { label: "Back", onSelect: () => setOverlay(null) },
           ]}
         />
       )}
-    </TravelScene>
+
+      {overlay === null && collisionMessage && <OverlayPanel body={collisionMessage} />}
+    </div>
   );
 }
 

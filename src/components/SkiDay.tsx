@@ -21,7 +21,15 @@ const DAY_LABEL: Record<string, string> = {
   saturday: "SATURDAY",
 };
 
-const PUDDLE_BRITCHES_THRESHOLD = 4;
+// Puddle Britches: once a player has eaten at least this many meals (any
+// food purchase, standard or risky — quantity is what matters, not choice),
+// each ski day they actually run rolls this chance to trigger it, until it
+// fires once. Eating almost nothing (0-1 meals across the whole trip) is the
+// only way to stay under the threshold and never risk it; not skiing at all
+// works too, since this only rolls on a completed run (below).
+const MEALS_EATEN_THRESHOLD = 2;
+const PUDDLE_BRITCHES_CHANCE = 0.8;
+const PUDDLE_BRITCHES_VIBE_PENALTY = 15; // § 18: was -30 — softened now that this fires in most playthroughs
 const INJURY_NAME: Record<"minor" | "moderate", string> = {
   minor: "twisted ankle",
   moderate: "banged-up knee",
@@ -86,10 +94,14 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     const preName = playthrough.displayName ?? playthrough.playerName ?? "You";
     const skiStyle = playthrough.skiStyle ?? "balanced";
     const triggersPuddle =
-      !playthrough.puddleBritchesTriggered && playthrough.foodRiskCounter >= PUDDLE_BRITCHES_THRESHOLD;
-    // Renamed immediately (not just once the state update re-renders) so the
-    // leaderboard/eventLog built below already reflect it on this same run.
-    const displayName = triggersPuddle ? "Puddle Britches" : preName;
+      !playthrough.puddleBritchesTriggered &&
+      playthrough.mealsEaten >= MEALS_EATEN_THRESHOLD &&
+      Math.random() < PUDDLE_BRITCHES_CHANCE;
+    // The leaderboard shows the nickname once triggered — either just now, or
+    // already on a prior day — but `playthrough.displayName` itself is never
+    // overwritten (§ 0 item 20): it always holds the name the player actually
+    // chose, so the status board can show it struck through under the nickname.
+    const leaderboardName = playthrough.puddleBritchesTriggered || triggersPuddle ? "Puddle Britches" : preName;
     const puddleLines = triggersPuddle
       ? [
           `${preName} felt a rumbling in the gut on the way down...`,
@@ -107,28 +119,26 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
           ...prev,
           severeInjuryExit: true,
           currentSegment: "ending-injured",
-          displayName: triggersPuddle ? "Puddle Britches" : prev.displayName,
-          vibePoints: prev.vibePoints - (triggersPuddle ? 30 : 0),
+          vibePoints: prev.vibePoints - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
           puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
           eventLog: [...prev.eventLog, `Wiped out hard on the ${route} run and had to be evacuated.`],
           completedSkiDays: [
             ...prev.completedSkiDays,
-            { day, route, crashed: true, verticalFeet: result.verticalFeet, leaderboardPlacement: "last" },
+            { day, route, crashed: true, verticalFeet: result.verticalFeet, leaderboardPlacement: "fourth" },
           ],
         }));
         return;
       }
 
       const finalSeverity = upgradeSeverity(playthrough.injury?.severity ?? null, rolled);
-      const dailyPenalty = finalSeverity === "moderate" ? -3 : -1;
+      const dailyPenalty = finalSeverity === "moderate" ? -2 : -1; // § 18: was -3
       const injuryLabel = INJURY_NAME[finalSeverity];
-      const board = buildLeaderboard(displayName, result.verticalFeet, true, route, skiStyle);
+      const board = buildLeaderboard(leaderboardName, result.verticalFeet, true, route, skiStyle);
 
       onUpdate((prev) => ({
         ...prev,
         injury: { severity: finalSeverity, dailyPenalty, treated: false },
-        displayName: triggersPuddle ? "Puddle Britches" : prev.displayName,
-        vibePoints: prev.vibePoints - (triggersPuddle ? 30 : 0),
+        vibePoints: prev.vibePoints - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
         puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
         eventLog: [...prev.eventLog, `Crashed on the ${route} run — ${injuryLabel} (${finalSeverity}).`],
         completedSkiDays: [
@@ -149,12 +159,11 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
       return;
     }
 
-    const board = buildLeaderboard(displayName, result.verticalFeet, false, route, skiStyle);
+    const board = buildLeaderboard(leaderboardName, result.verticalFeet, false, route, skiStyle);
 
     onUpdate((prev) => ({
       ...prev,
-      vibePoints: prev.vibePoints + board.vibeDelta - (triggersPuddle ? 30 : 0),
-      displayName: triggersPuddle ? "Puddle Britches" : prev.displayName,
+      vibePoints: prev.vibePoints + board.vibeDelta - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
       puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
       eventLog: [
         ...prev.eventLog,
@@ -175,13 +184,13 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   }
 
   function hotTub() {
-    onUpdate((prev) => ({ ...prev, vibePoints: prev.vibePoints + 1 }));
-    setSkipMessage("You skip today's run and soak in the hot tub instead. Not a bad trade.");
+    onUpdate((prev) => ({ ...prev, vibePoints: prev.vibePoints - 1 })); // § 18: was -2
+    setSkipMessage("You skip today's run and soak in the hot tub instead. Relaxing, but you can hear the guys bragging about the run you missed.");
   }
 
   function skipToday() {
-    onUpdate((prev) => ({ ...prev, vibePoints: prev.vibePoints + 1 }));
-    setSkipMessage("You decide to sit today out.");
+    onUpdate((prev) => ({ ...prev, vibePoints: prev.vibePoints - 2 })); // § 18: was -4
+    setSkipMessage("You decide to sit today out. The guys give you grief about it all day.");
   }
 
   function dismissSkipMessage() {

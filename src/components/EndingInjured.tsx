@@ -16,7 +16,7 @@ function EndingInjured({ playthrough }: SegmentProps) {
 
       <div className="absolute left-[68%] top-[2%] flex h-[12%] w-[30%] flex-col items-center justify-center gap-0.5 overflow-hidden px-1 text-center text-sm leading-tight text-amber-950">
         <p>EVACUATION</p>
-        <p>Final Vibe: {finalVibe}/100</p>
+        <p>Final Bragging Rights Level: {finalVibe}/100</p>
       </div>
 
       <OverlayPanel

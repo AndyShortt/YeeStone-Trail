@@ -3,21 +3,30 @@ import type { StoreFoodOption, StoreItem } from "../game/types";
 export const foodOptions: StoreFoodOption[] = [
   {
     id: "standard",
-    label: "Standard",
     cost: 20,
     vibeDelta: 10,
-    foodRiskIncrement: 0,
-    hungerRestore: 40, // BALANCE-PATCH-2026-09-05, new — § 3.10
+    hungerRestore: 25, // § 16: was 40 — meals were restoring too much relative to decay
   },
   {
     id: "risky",
-    label: "Spicy/Risky",
     cost: 15,
     vibeDelta: 0,
-    foodRiskIncrement: 1,
-    hungerRestore: 40, // BALANCE-PATCH-2026-09-05, new — § 3.10
+    hungerRestore: 25, // § 16: was 40
   },
 ];
+
+// § 9: the "standard" option now cycles through a rotating list of plain
+// foods instead of a static "Standard" label — re-rolled each time the food
+// menu is opened. "Risky" is always "Spicy Tacos" — no rotation there.
+export const STANDARD_FOOD_NAMES = ["Burgers", "Hot Dogs", "Fries"] as const;
+
+export function pickStandardFoodName(): string {
+  return STANDARD_FOOD_NAMES[Math.floor(Math.random() * STANDARD_FOOD_NAMES.length)];
+}
+
+export function getFoodLabel(optionId: "standard" | "risky"): string {
+  return optionId === "standard" ? pickStandardFoodName() : "Spicy Tacos";
+}
 
 export const storeItems: StoreItem[] = [
   { id: "drinks", label: "Drinks (Beer)", cost: 5, vibeDelta: 5 },

@@ -23,6 +23,9 @@ dist-ssr
 *.pfx
 *.crt
 
+# Pre-chroma-key intermediate art (generate_progression_assets.py debug output)
+public/images/_raw_*.png
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

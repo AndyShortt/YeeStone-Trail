@@ -5,13 +5,12 @@ import DenverAirport from "./components/DenverAirport";
 import DriveProgress from "./components/DriveProgress";
 import Ending from "./components/Ending";
 import EndingInjured from "./components/EndingInjured";
+import FlightAndRentalSelect from "./components/FlightAndRentalSelect";
 import FlightProgress from "./components/FlightProgress";
-import FlightTimeSelect from "./components/FlightTimeSelect";
 import JourneyHome from "./components/JourneyHome";
 import NameEntry from "./components/NameEntry";
 import ProfessionSelect from "./components/ProfessionSelect";
 import SkiDay from "./components/SkiDay";
-import SkiRentalSelect from "./components/SkiRentalSelect";
 import CheckStatus from "./components/shared/CheckStatus";
 import MapScreen from "./components/shared/MapScreen";
 import TitleScreen from "./components/TitleScreen";
@@ -27,7 +26,7 @@ function createInitialState(): GamePlaythrough {
     hungerLevel: 100,
     injury: null,
     severeInjuryExit: false,
-    foodRiskCounter: 0,
+    mealsEaten: 0,
     puddleBritchesTriggered: false,
     lostSkiDay: false,
     skiStyle: null,
@@ -36,8 +35,6 @@ function createInitialState(): GamePlaythrough {
     dukeUncChoice: null,
     dukeUncResolved: false,
     thermalWearPurchased: false,
-    restUsedThisVisit: false,
-    voluntaryQuit: false,
     uncWinBonusPending: false,
     wentBrokeTriggered: false,
     eventLog: [],
@@ -49,8 +46,7 @@ const segmentComponents: Record<SegmentId, ComponentType<SegmentProps>> = {
   title: TitleScreen,
   "name-entry": NameEntry,
   "profession-select": ProfessionSelect,
-  "flight-time-select": FlightTimeSelect,
-  "ski-rental-select": SkiRentalSelect,
+  "flight-and-rental-select": FlightAndRentalSelect,
   "flight-progress": FlightProgress,
   "denver-airport": DenverAirport,
   "drive-progress": DriveProgress,

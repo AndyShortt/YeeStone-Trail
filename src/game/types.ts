@@ -12,8 +12,7 @@ export type SegmentId =
   | "title"
   | "name-entry"
   | "profession-select"
-  | "flight-time-select"
-  | "ski-rental-select"
+  | "flight-and-rental-select"
   | "flight-progress"
   | "denver-airport"
   | "drive-progress"
@@ -37,7 +36,7 @@ export interface SkiDayResult {
   route: "green" | "blue" | "black";
   crashed: boolean;
   verticalFeet: number;
-  leaderboardPlacement: "first" | "middle" | "last";
+  leaderboardPlacement: "first" | "second" | "third" | "fourth";
 }
 
 export interface GamePlaythrough {
@@ -57,8 +56,8 @@ export interface GamePlaythrough {
   injury: Injury | null;
   severeInjuryExit: boolean;
 
-  // Puddle Britches
-  foodRiskCounter: number;
+  // Puddle Britches — any food purchase counts now, not just the risky option
+  mealsEaten: number;
   puddleBritchesTriggered: boolean;
 
   // Flight delay
@@ -73,8 +72,6 @@ export interface GamePlaythrough {
   dukeUncChoice: "unc" | "duke" | "neutral" | null;
   dukeUncResolved: boolean;
   thermalWearPurchased: boolean;
-  restUsedThisVisit: boolean; // § 4.12 option 6 — resets each cabin-arrival/cabin-evening
-  voluntaryQuit: boolean; // § 4.12 option 8 — forces Disaster tier at `ending` (§ 6.3)
   uncWinBonusPending: boolean; // § 3.8 — +1% injury risk on the very next ski day only
   wentBrokeTriggered: boolean; // § 3.11 — one-time vibe hit the first time money hits
                                 // exactly $0 (BALANCE-PATCH-2026-09-05, new)
@@ -99,10 +96,8 @@ export interface BroEventPool {
 
 export interface StoreFoodOption {
   id: "standard" | "risky";
-  label: string;
   cost: number;
   vibeDelta: number;
-  foodRiskIncrement: number;
   hungerRestore: number; // BALANCE-PATCH-2026-09-05, new — § 3.10
 }
 

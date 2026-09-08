@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { foodOptions, storeItems } from "../../data/store-items";
+import { foodOptions, getFoodLabel, storeItems } from "../../data/store-items";
 import { applySpend } from "../../game/economy";
 import type { GamePlaythrough } from "../../game/types";
 
@@ -29,7 +29,7 @@ function Store({ playthrough, onUpdate, onLeave }: StoreProps) {
         money: spend.money,
         vibePoints: prev.vibePoints + food.vibeDelta + spend.vibeDelta,
         hungerLevel: Math.min(100, prev.hungerLevel + food.hungerRestore),
-        foodRiskCounter: prev.foodRiskCounter + food.foodRiskIncrement,
+        mealsEaten: prev.mealsEaten + 1,
         wentBrokeTriggered: spend.wentBrokeTriggered,
         eventLog: spend.eventLogAppend ? [...prev.eventLog, spend.eventLogAppend] : prev.eventLog,
       };
@@ -115,7 +115,7 @@ function Store({ playthrough, onUpdate, onLeave }: StoreProps) {
               disabled={playthrough.money < 20}
               className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              a. Standard — $20/meal
+              a. {getFoodLabel("standard")} — $20/meal
             </button>
             <button
               type="button"
@@ -123,7 +123,7 @@ function Store({ playthrough, onUpdate, onLeave }: StoreProps) {
               disabled={playthrough.money < 15}
               className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              b. Spicy/Risky — $15/meal
+              b. {getFoodLabel("risky")} — $15/meal
             </button>
             <button
               type="button"

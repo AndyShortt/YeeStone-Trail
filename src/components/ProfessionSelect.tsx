@@ -25,7 +25,7 @@ function ProfessionSelect({ onUpdate }: SegmentProps) {
       profession,
       vibePoints: profession.startingVibe,
       money: profession.startingMoney,
-      currentSegment: "flight-time-select",
+      currentSegment: "flight-and-rental-select",
     }));
   }
 
@@ -63,14 +63,14 @@ function ProfessionSelect({ onUpdate }: SegmentProps) {
           >
             <span className="text-4xl leading-none">{profession.name}</span>
             <span className="text-2xl leading-none opacity-80">
-              Cash: ${profession.startingMoney} — Vibe: {profession.startingVibe}
+              Cash: ${profession.startingMoney} — Starting Bragging Rights Level: {profession.startingVibe}
             </span>
           </button>
         </div>
       ))}
 
       <div className="absolute left-[8%] top-[86%] flex h-[10%] w-[84%] items-center justify-center overflow-hidden px-2 text-center text-2xl text-amber-950">
-        Choose Your Profession
+        Where you coming from YeeDaddy?
       </div>
     </div>
   );

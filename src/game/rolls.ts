@@ -28,21 +28,6 @@ export function rollBroEvent(options: { skiDay?: boolean } = {}): BroEventResult
   };
 }
 
-export interface LuggageSkipResult {
-  vibeDelta: number;
-  moneyDelta: number;
-  message: string;
-}
-
-/** § 4.9 option 2: skip the luggage mini-game, take a small chance on one item. */
-export function rollLuggageSkip(): LuggageSkipResult | null {
-  if (Math.random() >= 0.05) return null;
-  if (Math.random() < 1 / 5) {
-    return { vibeDelta: -5, moneyDelta: 0, message: "Lost the thermal wear in the shuffle." };
-  }
-  return { vibeDelta: -1, moneyDelta: -50, message: "Lost a duffel bag in the shuffle." };
-}
-
 export type DoctorOutcome = "full-recovery" | "partial-recovery" | "no-change";
 
 /** § 3.5 Doctor / First-Aid Mechanic. BALANCE-PATCH-2026-09-05: success rate was 50%. */

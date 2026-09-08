@@ -1,67 +1,80 @@
 import { useEffect, useRef, useState } from "react";
-import { obstaclePoolForLeg, type DriveObstacleType } from "../game/drive";
 
-const BG_IMG_SRC = "/images/progress-drive-bg.png";
-const TRUCK_IMG_SRC = "/images/progress-truck.png";
-const COSTCO_ICON_SRC = "/images/progress-costco-icon.png";
-const CABIN_ICON_SRC = "/images/progress-cabin-icon.png";
-const OBSTACLE_IMG_SRC: Record<DriveObstacleType, string> = {
-  car: "/images/progress-obstacle-car.png",
-  truck: "/images/progress-obstacle-truck.png",
-  wreck: "/images/progress-obstacle-wreck.png",
-  cowboy: "/images/progress-obstacle-cowboy.png",
-  "alien-ufo": "/images/progress-obstacle-alien-ufo.png",
+const BG_IMG_SRC = "/images/progress-flight-bg.png";
+const PLANE_IMG_SRC = "/images/progress-plane.png";
+const DENVER_ICON_SRC = "/images/progress-denver-airport-icon.png";
+const OBSTACLE_IMG_SRC = {
+  bird: "/images/progress-obstacle-bird.png",
+  plane: "/images/progress-obstacle-plane.png",
+  dragon: "/images/progress-obstacle-dragon.png", // § 7
+} as const;
+
+type ObstacleType = keyof typeof OBSTACLE_IMG_SRC;
+const OBSTACLE_TYPES: ObstacleType[] = ["bird", "plane", "dragon"];
+// `collisionThreshold` is the max |dx| from the plane's x that still counts
+// as a hit, tuned per type so the visually-bigger rival plane is a bit
+// harder to avoid than the small, nimble bird (mirrors how SkiRun.tsx scales
+// its own per-type hit radius rather than using one flat value for everything).
+const OBSTACLE_VISUAL: Record<ObstacleType, { size: number; collisionThreshold: number }> = {
+  bird: { size: 36, collisionThreshold: 22 },
+  plane: { size: 64, collisionThreshold: 34 },
+  dragon: { size: 64, collisionThreshold: 34 }, // § 7: roughly plane-scale
 };
 
 const CANVAS_SIZE = 500;
-// Pixel-measured against the actual progress-drive-bg.png (1024px tall): the
-// paved road band (including its edge stripes) runs from y=604 to y=863.
-const ROAD_TOP = 295;
-const ROAD_BOTTOM = 421;
+// Open sky "lanes" (no literal road) — kept away from the very top/bottom
+// edges so there's room for the ground-hint strip and the landmark below.
+const LANE_TOP = 90;
+const LANE_BOTTOM = 340;
 const NUM_LANES = 3;
-const TRUCK_X = 95;
+const PLANE_X = 95;
+const PLANE_SIZE = 56;
 const SPAWN_X = CANVAS_SIZE + 40;
-const OBSTACLE_TRAVEL_MS = 1800;
-const COLLISION_THRESHOLD = 30;
-const TRUCK_SIZE = 56;
-const OBSTACLE_SIZE = 52;
+const OBSTACLE_TRAVEL_MS = 1700;
 
-// § 11/§ 12: Costco grows in near the end of leg 1 (Walter's stop), the
-// cabin near the end of leg 2 — same bottom-anchored fade-in technique
-// FlightRun.tsx already uses for the Denver Airport landmark.
-const LANDMARK_SIZE = 150;
+// The Denver Airport landmark grows in on the canvas itself (bottom-anchored,
+// on the bg's own ground-hint strip — see § 2) rather than via TravelScene,
+// since this screen no longer has a passive "coasting" view at all.
+const LANDMARK_SIZE = 210; // § 6: was 150 — hard to see
 const LANDMARK_X = 380;
+const LANDMARK_BOTTOM_GAP = 15; // § 6: was a flat 5px gap — lifted higher too
 const LANDMARK_FADE_IN_AT = 0.75;
 
 function laneY(lane: number) {
-  const laneHeight = (ROAD_BOTTOM - ROAD_TOP) / NUM_LANES;
-  return ROAD_TOP + laneHeight * (lane + 0.5);
+  const laneHeight = (LANE_BOTTOM - LANE_TOP) / NUM_LANES;
+  return LANE_TOP + laneHeight * (lane + 0.5);
 }
 
-interface DriveObstacle {
+interface FlightObstacle {
   id: number;
   lane: number;
-  type: DriveObstacleType;
+  type: ObstacleType;
   spawnAt: number;
   x: number;
 }
 
-type Phase = "countdown" | "running" | "crashed" | "finished";
+type Phase = "countdown" | "running" | "collided" | "finished";
 
-interface DriveRunProps {
-  firstLegMs: number;
-  secondLegMs: number;
+interface FlightRunProps {
+  durationMs: number;
   startSpawnPerSec: number;
   endSpawnPerSec: number;
   paused: boolean;
   onTick: (elapsedMs: number) => void;
-  /** Fired once per collision (not once per run) — the run resumes afterward, see § 4. */
+  /** § 5: fired once per collision — the run resumes afterward, same as DriveRun.tsx. */
   onCollision: (elapsedMs: number) => void;
   onFinish: () => void;
 }
 
-function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, paused, onTick, onCollision, onFinish }: DriveRunProps) {
-  const durationMs = firstLegMs + secondLegMs;
+/**
+ * § 1: the flight's interactive dodge mini-game — same architecture as
+ * DriveRun.tsx (countdown, fixed lanes, setInterval tick loop with dt capped
+ * at 48ms, obstacles spawn only into an unoccupied lane). § 5: a collision no
+ * longer ends the run — it now resumes exactly like DriveRun.tsx's collision
+ * handling (brief particle beat, obstacles cleared, spawn grace period, back
+ * to "running"), just reskinned as a trailing smoke puff instead of a crash.
+ */
+function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTick, onCollision, onFinish }: FlightRunProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [phase, setPhase] = useState<Phase>("countdown");
   const [countdownLabel, setCountdownLabel] = useState("READY");
@@ -71,12 +84,12 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
   const stateRef = useRef({
     elapsedMs: 0,
     laneIndex: 1,
-    truckY: laneY(1),
+    planeY: laneY(1),
     keys: { up: false, down: false },
-    obstacles: [] as DriveObstacle[],
+    obstacles: [] as FlightObstacle[],
     nextObstacleId: 1,
     nextSpawnAt: 500,
-    crashParticles: [] as { x: number; y: number; vx: number; vy: number; life: number }[],
+    smokeParticles: [] as { x: number; y: number; vx: number; vy: number; life: number }[],
     ended: false,
     intervalId: 0,
   });
@@ -84,14 +97,11 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
   useEffect(() => {
     const sources: Record<string, string> = {
       bg: BG_IMG_SRC,
-      truck: TRUCK_IMG_SRC,
-      costcoIcon: COSTCO_ICON_SRC,
-      cabinIcon: CABIN_ICON_SRC,
-      car: OBSTACLE_IMG_SRC.car,
-      truckObstacle: OBSTACLE_IMG_SRC.truck,
-      wreck: OBSTACLE_IMG_SRC.wreck,
-      cowboy: OBSTACLE_IMG_SRC.cowboy,
-      alienUfo: OBSTACLE_IMG_SRC["alien-ufo"],
+      plane: PLANE_IMG_SRC,
+      denverIcon: DENVER_ICON_SRC,
+      bird: OBSTACLE_IMG_SRC.bird,
+      rivalPlane: OBSTACLE_IMG_SRC.plane,
+      dragon: OBSTACLE_IMG_SRC.dragon,
     };
     let cancelled = false;
     let loadedCount = 0;
@@ -176,8 +186,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
         return;
       }
       const lane = openLanes[Math.floor(Math.random() * openLanes.length)];
-      const pool = obstaclePoolForLeg(s.elapsedMs < firstLegMs ? 1 : 2);
-      const type = pool[Math.floor(Math.random() * pool.length)];
+      const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
       s.obstacles.push({ id: s.nextObstacleId++, lane, type, spawnAt: s.elapsedMs, x: SPAWN_X });
       s.nextSpawnAt = s.elapsedMs + intervalMs;
     }
@@ -188,7 +197,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
 
       maybeChangeLane();
       const targetY = laneY(s.laneIndex);
-      s.truckY += (targetY - s.truckY) * 0.28;
+      s.planeY += (targetY - s.planeY) * 0.28;
 
       spawnMaybe();
 
@@ -196,10 +205,10 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       s.obstacles = s.obstacles.filter((ob) => {
         const t = (s.elapsedMs - ob.spawnAt) / OBSTACLE_TRAVEL_MS;
         if (t >= 1) return false;
-        ob.x = SPAWN_X + (TRUCK_X - SPAWN_X) * t;
+        ob.x = SPAWN_X + (PLANE_X - SPAWN_X) * t;
 
-        if (!crashedNow && ob.lane === s.laneIndex && Math.abs(ob.x - TRUCK_X) < COLLISION_THRESHOLD) {
-          crashedNow = true;
+        if (!crashedNow && ob.lane === s.laneIndex) {
+          if (Math.abs(ob.x - PLANE_X) < OBSTACLE_VISUAL[ob.type].collisionThreshold) crashedNow = true;
         }
         return true;
       });
@@ -212,49 +221,41 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       const bg = imagesRef.current.bg;
       if (bg?.complete && bg.naturalWidth > 0) ctx!.drawImage(bg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      // § 11/§ 12: whichever leg we're in, fade its own destination landmark
-      // in over the last quarter of that leg.
-      const inLeg1 = s.elapsedMs < firstLegMs;
-      const legStart = inLeg1 ? 0 : firstLegMs;
-      const legLen = inLeg1 ? firstLegMs : secondLegMs;
-      const legT = legLen > 0 ? (s.elapsedMs - legStart) / legLen : 1;
-      const landmarkT = Math.min(1, Math.max(0, (legT - LANDMARK_FADE_IN_AT) / (1 - LANDMARK_FADE_IN_AT)));
+      const landmarkT = Math.min(1, Math.max(0, (s.elapsedMs / durationMs - LANDMARK_FADE_IN_AT) / (1 - LANDMARK_FADE_IN_AT)));
       if (landmarkT > 0) {
-        const landmark = imagesRef.current[inLeg1 ? "costcoIcon" : "cabinIcon"];
-        if (landmark?.complete && landmark.naturalWidth > 0) {
+        const denverIcon = imagesRef.current.denverIcon;
+        if (denverIcon?.complete && denverIcon.naturalWidth > 0) {
           ctx!.globalAlpha = landmarkT;
-          ctx!.drawImage(landmark, LANDMARK_X - LANDMARK_SIZE / 2, CANVAS_SIZE - LANDMARK_SIZE - 5, LANDMARK_SIZE, LANDMARK_SIZE);
+          ctx!.drawImage(
+            denverIcon,
+            LANDMARK_X - LANDMARK_SIZE / 2,
+            CANVAS_SIZE - LANDMARK_SIZE - LANDMARK_BOTTOM_GAP,
+            LANDMARK_SIZE,
+            LANDMARK_SIZE,
+          );
           ctx!.globalAlpha = 1;
         }
       }
 
       const sorted = [...s.obstacles].sort((a, b) => a.x - b.x);
       for (const ob of sorted) {
-        const key =
-          ob.type === "car"
-            ? "car"
-            : ob.type === "truck"
-              ? "truckObstacle"
-              : ob.type === "wreck"
-                ? "wreck"
-                : ob.type === "cowboy"
-                  ? "cowboy"
-                  : "alienUfo";
+        const key = ob.type === "bird" ? "bird" : ob.type === "plane" ? "rivalPlane" : "dragon";
         const img = imagesRef.current[key];
+        const size = OBSTACLE_VISUAL[ob.type].size;
         if (img?.complete && img.naturalWidth > 0) {
-          ctx!.drawImage(img, ob.x - OBSTACLE_SIZE / 2, laneY(ob.lane) - OBSTACLE_SIZE / 2, OBSTACLE_SIZE, OBSTACLE_SIZE);
+          ctx!.drawImage(img, ob.x - size / 2, laneY(ob.lane) - size / 2, size, size);
         }
       }
 
-      const truckImg = imagesRef.current.truck;
-      if (truckImg?.complete && truckImg.naturalWidth > 0) {
-        ctx!.drawImage(truckImg, TRUCK_X - TRUCK_SIZE / 2, s.truckY - TRUCK_SIZE / 2, TRUCK_SIZE, TRUCK_SIZE);
+      const planeImg = imagesRef.current.plane;
+      if (planeImg?.complete && planeImg.naturalWidth > 0) {
+        ctx!.drawImage(planeImg, PLANE_X - PLANE_SIZE / 2, s.planeY - PLANE_SIZE / 2, PLANE_SIZE, PLANE_SIZE);
       }
     }
 
     // setInterval, not requestAnimationFrame: rAF throttles/pauses in a
     // backgrounded tab, which would silently freeze this timed run (same
-    // reasoning already documented in SkiRun.tsx).
+    // reasoning already documented in SkiRun.tsx/DriveRun.tsx).
     let lastFrame = performance.now();
     function tick() {
       const now = performance.now();
@@ -265,16 +266,18 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
         const crashedNow = update(dt);
         if (crashedNow && !s.ended) {
           s.ended = true;
-          s.obstacles = []; // cleared so resuming (§ 4) doesn't instantly re-collide
-          s.crashParticles = Array.from({ length: 14 }, () => ({
-            x: TRUCK_X,
-            y: s.truckY,
-            vx: (Math.random() - 0.5) * 6,
-            vy: (Math.random() - 0.5) * 6 - 1,
+          s.obstacles = []; // cleared so resuming (§ 5) doesn't instantly re-collide
+          // A trailing smoke puff, not an outward debris burst — fewer, slower,
+          // gray-white particles drifting up/back rather than exploding out.
+          s.smokeParticles = Array.from({ length: 8 }, () => ({
+            x: PLANE_X,
+            y: s.planeY,
+            vx: -1 - Math.random() * 1.5,
+            vy: -(Math.random() * 1.5),
             life: 1,
           }));
           clearInterval(s.intervalId);
-          setPhase("crashed");
+          setPhase("collided");
           return;
         }
         if (s.elapsedMs >= durationMs && !s.ended) {
@@ -292,45 +295,44 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
     s.intervalId = intervalId;
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, firstLegMs, secondLegMs, durationMs, startSpawnPerSec, endSpawnPerSec, paused]);
+  }, [phase, durationMs, startSpawnPerSec, endSpawnPerSec, paused]);
 
   useEffect(() => {
-    if (phase !== "crashed" && phase !== "finished") return;
+    if (phase !== "collided" && phase !== "finished") return;
     const s = stateRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
 
-    if (phase === "crashed" && ctx) {
+    if (phase === "collided" && ctx) {
       let last = performance.now();
-      const burst = () => {
+      const puff = () => {
         const now = performance.now();
         const dt = Math.min(48, now - last);
         last = now;
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
         const bg = imagesRef.current.bg;
         if (bg?.complete) ctx.drawImage(bg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
-        s.crashParticles.forEach((p) => {
+        s.smokeParticles.forEach((p) => {
           p.x += p.vx * (dt / 16);
           p.y += p.vy * (dt / 16);
-          p.vy += 0.15 * (dt / 16);
           p.life -= dt / 500;
         });
-        s.crashParticles = s.crashParticles.filter((p) => p.life > 0);
-        s.crashParticles.forEach((p) => {
-          ctx.globalAlpha = Math.max(0, p.life);
-          ctx.fillStyle = "rgba(255,255,255,0.9)";
+        s.smokeParticles = s.smokeParticles.filter((p) => p.life > 0);
+        s.smokeParticles.forEach((p) => {
+          ctx.globalAlpha = Math.max(0, p.life) * 0.7;
+          ctx.fillStyle = "rgba(220,220,220,0.9)";
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.globalAlpha = 1;
-        if (s.crashParticles.length === 0) clearInterval(burstInterval);
+        if (s.smokeParticles.length === 0) clearInterval(puffInterval);
       };
-      const burstInterval = window.setInterval(burst, 16);
+      const puffInterval = window.setInterval(puff, 16);
 
-      // § 4: collisions no longer end the run — report this one, then
-      // resume. A short grace period on the next spawn (rather than a
-      // separate time-based invincibility flag) gives the player a moment to
+      // § 5: collisions no longer end the run — report this one, then
+      // resume, exactly mirroring DriveRun.tsx's collision handling. A short
+      // grace period on the next spawn gives the player a moment to
       // reorient; obstacles were already cleared to empty the instant the
       // collision was detected, so there's nothing left to instantly re-hit.
       const timer = setTimeout(() => {
@@ -340,7 +342,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
         setPhase("running");
       }, 700);
       return () => {
-        clearInterval(burstInterval);
+        clearInterval(puffInterval);
         clearTimeout(timer);
       };
     }
@@ -366,10 +368,10 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
         </div>
       )}
 
-      {phase === "crashed" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-900/30">
-          <p className="text-4xl text-red-100" style={{ textShadow: "3px 3px 0 #000" }}>
-            CRASH!
+      {phase === "collided" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+          <p className="text-3xl text-amber-100" style={{ textShadow: "3px 3px 0 #000" }}>
+            Bumpy air!
           </p>
         </div>
       )}
@@ -377,7 +379,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       {phase === "finished" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
           <p className="text-4xl text-amber-100" style={{ textShadow: "3px 3px 0 #000" }}>
-            MADE IT!
+            LANDED!
           </p>
         </div>
       )}
@@ -393,4 +395,4 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
   );
 }
 
-export default DriveRun;
+export default FlightRun;

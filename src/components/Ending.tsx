@@ -1,20 +1,23 @@
-import { useState } from "react";
 import { endingTiers } from "../data/ending-tiers";
+import { selectTagline } from "../data/ending-taglines";
 import type { SegmentProps } from "../game/types";
 import { useOnEntry } from "../game/useOnEntry";
 import OverlayPanel from "./shared/OverlayPanel";
 
 const endingImg = "/images/special-ending-screen.png";
 
-type Stage = "tagline" | "summary" | "recap";
-
 function getTier(vibePoints: number) {
   return endingTiers.find((t) => vibePoints >= t.min) ?? endingTiers[endingTiers.length - 1];
 }
 
+/**
+ * § 20: collapsed from a 3-stage reveal (tagline -> money/injury summary ->
+ * last-2-eventLog recap) down to one — the summary is now redundant with
+ * `journey-home`'s "Final Results" screen (§ 19) the player just came from,
+ * and the recap (Duke/UNC winner, ski placement, etc.) was already seen live
+ * as it happened. Just the tagline, plus a big centered Play Again.
+ */
 function Ending({ playthrough, onUpdate }: SegmentProps) {
-  const [stage, setStage] = useState<Stage>("tagline");
-
   useOnEntry(() => {
     if (playthrough.puddleBritchesTriggered && playthrough.vibePoints > 60) {
       onUpdate((prev) => ({
@@ -25,14 +28,8 @@ function Ending({ playthrough, onUpdate }: SegmentProps) {
     }
   });
 
-  const tier = playthrough.voluntaryQuit ? endingTiers[endingTiers.length - 1] : getTier(playthrough.vibePoints);
-  const tagline = playthrough.voluntaryQuit
-    ? "You packed it in early. The boys will never let you live it down."
-    : tier.line;
-
-  const injuryLine = playthrough.injury ? `Injury: ${playthrough.injury.severity}` : "No injuries";
-  const recapHighlights = playthrough.eventLog.slice(-2);
-  const recapBody = recapHighlights.length > 0 ? recapHighlights : ["A quiet trip — no big moments logged."];
+  const tier = getTier(playthrough.vibePoints);
+  const tagline = selectTagline(playthrough, tier.name);
 
   function playAgain() {
     window.location.reload();
@@ -44,23 +41,18 @@ function Ending({ playthrough, onUpdate }: SegmentProps) {
 
       <div className="absolute left-[68%] top-[2%] flex h-[16%] w-[30%] flex-col items-center justify-center gap-0.5 overflow-hidden px-1 text-center text-sm leading-tight text-amber-950">
         <p>{tier.name}</p>
-        <p>Vibe: {playthrough.vibePoints}/100</p>
+        <p>Bragging Rights Level: {playthrough.vibePoints}/100</p>
       </div>
 
-      {stage === "tagline" && (
-        <OverlayPanel body={tagline} onDismiss={() => setStage("summary")} />
-      )}
+      <OverlayPanel body={tagline} />
 
-      {stage === "summary" && (
-        <OverlayPanel
-          body={[`Money: $${playthrough.money}`, injuryLine]}
-          onDismiss={() => setStage("recap")}
-        />
-      )}
-
-      {stage === "recap" && (
-        <OverlayPanel body={recapBody} options={[{ label: "Play again", onSelect: playAgain }]} />
-      )}
+      <button
+        type="button"
+        onClick={playAgain}
+        className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 cursor-pointer whitespace-nowrap rounded border-2 border-amber-950 bg-amber-100/90 px-6 py-3 text-3xl text-amber-950 hover:bg-amber-100"
+      >
+        Play again
+      </button>
     </div>
   );
 }

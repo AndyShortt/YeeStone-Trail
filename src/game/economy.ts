@@ -16,10 +16,10 @@ export function applySpend(prev: GamePlaythrough, cost: number): SpendResult {
   if (money > 0 || prev.wentBrokeTriggered) {
     return { money, vibeDelta: 0, wentBrokeTriggered: prev.wentBrokeTriggered };
   }
-  const name = prev.displayName ?? prev.playerName ?? "You";
+  const name = prev.puddleBritchesTriggered ? "Puddle Britches" : (prev.displayName ?? prev.playerName ?? "You");
   return {
     money,
-    vibeDelta: -15,
+    vibeDelta: -8, // § 18: was -15
     wentBrokeTriggered: true,
     eventLogAppend: `Down to your last dollar. ${name}'s covering the rest of the trip on credit and everyone knows it.`,
   };

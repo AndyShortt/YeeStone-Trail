@@ -1,20 +1,23 @@
 import { useState } from "react";
+import { pickCrewTip } from "../data/crew-tips";
+import { foodOptions, getFoodLabel } from "../data/store-items";
 import { applySpend } from "../game/economy";
-import { rollBroEvent, rollLuggageSkip, type LuggageSkipResult } from "../game/rolls";
+import { rollBroEvent } from "../game/rolls";
 import type { SegmentProps } from "../game/types";
 import { useOnEntry } from "../game/useOnEntry";
 import OverlayPanel from "./shared/OverlayPanel";
 
 const denverAirportImg = "/images/segment-3-denver-airport.png";
 
-type Phase = "pre-luggage" | "post-luggage";
+const FOOD_PURCHASE_CAP = 2;
+
+type Overlay = "entry-events" | "snack" | null;
 
 function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
-  const [phase, setPhase] = useState<Phase>("pre-luggage");
+  const [overlay, setOverlay] = useState<Overlay>(null);
   const [entryMessage, setEntryMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  // BALANCE-PATCH-2026-09-05, new — § 5.1 lost-luggage buyback.
-  const [pendingLuggageLoss, setPendingLuggageLoss] = useState<LuggageSkipResult | null>(null);
+  const [foodPurchases, setFoodPurchases] = useState(0);
 
   useOnEntry(() => {
     const broEvent = rollBroEvent();
@@ -28,129 +31,81 @@ function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     }
   });
 
-  function startLuggageMinigame() {
-    // Mini-game not implemented yet — passes straight through, no penalty.
-    setPhase("post-luggage");
-  }
-
-  function skipLuggage() {
-    const result = rollLuggageSkip();
-    if (result) {
-      setPendingLuggageLoss(result);
-    } else {
-      setPhase("post-luggage");
-    }
-  }
-
-  // BALANCE-PATCH-2026-09-05, new — § 5.1: pay to cancel this run's item-loss penalty.
-  function payLuggageBuyback() {
+  function buyFood(optionId: "standard" | "risky") {
+    if (foodPurchases >= FOOD_PURCHASE_CAP) return;
+    const food = foodOptions.find((f) => f.id === optionId)!;
+    if (playthrough.money < food.cost) return;
     onUpdate((prev) => {
-      const spend = applySpend(prev, 100);
+      const spend = applySpend(prev, food.cost);
       return {
         ...prev,
         money: spend.money,
-        vibePoints: prev.vibePoints + spend.vibeDelta,
+        vibePoints: prev.vibePoints + food.vibeDelta + spend.vibeDelta,
+        hungerLevel: Math.min(100, prev.hungerLevel + food.hungerRestore),
+        mealsEaten: prev.mealsEaten + 1,
         wentBrokeTriggered: spend.wentBrokeTriggered,
         eventLog: spend.eventLogAppend ? [...prev.eventLog, spend.eventLogAppend] : prev.eventLog,
       };
     });
-    setPendingLuggageLoss(null);
-    setPhase("post-luggage");
-  }
-
-  function dealWithLuggageLoss() {
-    const result = pendingLuggageLoss;
-    if (result) {
-      onUpdate((prev) => ({
-        ...prev,
-        vibePoints: prev.vibePoints + result.vibeDelta,
-        money: prev.money + result.moneyDelta,
-        eventLog: [...prev.eventLog, result.message],
-      }));
-      setMessage(result.message);
-    }
-    setPendingLuggageLoss(null);
-    setPhase("post-luggage");
+    setFoodPurchases((prev) => prev + 1);
+    setOverlay(null);
   }
 
   function headToParking() {
     onUpdate((prev) => ({ ...prev, currentSegment: "drive-progress" }));
   }
 
+  // § 10: renamed "Tips from the guys" — rotating pool instead of one static line.
   function talkToCrew() {
-    setMessage(
-      "You catch up with the guys — same old stories, already feels like the trip's started.",
-    );
+    setMessage(pickCrewTip());
   }
 
   return (
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={denverAirportImg} alt="Denver airport" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[19%] top-[2%] flex h-[11%] w-[36%] items-center justify-center overflow-hidden px-1 text-center text-sm leading-tight">
-        {phase === "pre-luggage" ? "Grab your bags!" : "Head to Keystone."}
+      <div className="absolute left-[2%] top-[1%] flex h-[17%] w-[96%] flex-col items-center justify-center gap-0.5 overflow-hidden px-1 text-center leading-tight">
+        <p className="text-2xl">Welcome to Denver!</p>
+        <p className="text-sm">Grab Bags/Snacks Then Hit The Road</p>
       </div>
 
-      {phase === "pre-luggage" ? (
-        <>
-          <button
-            type="button"
-            onClick={startLuggageMinigame}
-            className="absolute left-[2%] top-[73%] flex h-[25%] w-[26%] cursor-pointer items-center justify-center overflow-hidden px-1 text-center text-base leading-tight hover:bg-amber-900/10"
-          >
-            1. Start luggage minigame!
-          </button>
-          <button
-            type="button"
-            onClick={skipLuggage}
-            className="absolute left-[30%] top-[73%] h-[8.33%] w-[68%] cursor-pointer overflow-hidden text-left text-base leading-tight hover:bg-amber-900/10"
-          >
-            2. Skip minigame
-          </button>
-        </>
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={headToParking}
-            className="absolute left-[2%] top-[73%] flex h-[25%] w-[26%] cursor-pointer items-center justify-center overflow-hidden px-1 text-center text-base leading-tight hover:bg-amber-900/10"
-          >
-            1. Head out to parking
-          </button>
-          <button
-            type="button"
-            onClick={() => onShowOverlay?.("status")}
-            className="absolute left-[30%] top-[73%] h-[6.25%] w-[68%] cursor-pointer overflow-hidden text-left text-base leading-tight hover:bg-amber-900/10"
-          >
-            2. Check your status
-          </button>
-          <button
-            type="button"
-            onClick={talkToCrew}
-            className="absolute left-[30%] top-[79.25%] h-[6.25%] w-[68%] cursor-pointer overflow-hidden text-left text-base leading-tight hover:bg-amber-900/10"
-          >
-            3. Talk to the crew
-          </button>
-        </>
-      )}
+      {/* § 8: regenerated as one simple panel (took 3 attempts — the model
+          kept reproducing the old square+3-strips grid until the prompt
+          explicitly named and forbade that exact pattern). */}
+      <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-2 overflow-hidden px-2 text-xl leading-tight">
+        <button type="button" onClick={() => setOverlay("snack")} className="cursor-pointer text-left hover:text-amber-700">
+          1. Shop for snacks
+        </button>
+        <button type="button" onClick={headToParking} className="cursor-pointer text-left hover:text-amber-700">
+          2. Hit the road
+        </button>
+        <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
+          3. Check status
+        </button>
+        <button type="button" onClick={talkToCrew} className="cursor-pointer text-left hover:text-amber-700">
+          4. Tips from the guys
+        </button>
+      </div>
 
       {entryMessage && (
         <OverlayPanel body={entryMessage} onDismiss={() => setEntryMessage(null)} />
       )}
-      {!entryMessage && pendingLuggageLoss && (
+
+      {!entryMessage && overlay === "snack" && (
         <OverlayPanel
-          body="You're missing a bag."
+          body="Grab a snack before you hit the road:"
           options={[
-            {
-              label: "Pay $100 to rush it to the cabin tonight",
-              onSelect: payLuggageBuyback,
-              disabled: playthrough.money < 100,
-            },
-            { label: "Deal with it", onSelect: dealWithLuggageLoss },
+            ...foodOptions.map((food) => ({
+              label: `${getFoodLabel(food.id)} — $${food.cost}`,
+              onSelect: () => buyFood(food.id),
+              disabled: foodPurchases >= FOOD_PURCHASE_CAP || playthrough.money < food.cost,
+            })),
+            { label: "Back", onSelect: () => setOverlay(null) },
           ]}
         />
       )}
-      {!entryMessage && !pendingLuggageLoss && message && (
+
+      {!entryMessage && overlay !== "snack" && message && (
         <OverlayPanel body={message} onDismiss={() => setMessage(null)} />
       )}
     </div>

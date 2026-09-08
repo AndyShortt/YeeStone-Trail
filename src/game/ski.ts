@@ -71,9 +71,11 @@ export interface LeaderboardEntry {
   crashed: boolean;
 }
 
+export type LeaderboardPlacement = "first" | "second" | "third" | "fourth";
+
 export interface LeaderboardResult {
   entries: LeaderboardEntry[];
-  placement: "first" | "middle" | "last";
+  placement: LeaderboardPlacement;
   vibeDelta: number;
 }
 
@@ -107,20 +109,26 @@ export function buildLeaderboard(
 
   const entries = [...broEntries, playerEntry].sort((a, b) => b.verticalFeet - a.verticalFeet);
   const playerIndex = entries.findIndex((e) => e.isPlayer);
-  const placement: "first" | "middle" | "last" =
-    playerIndex === 0 ? "first" : playerIndex === entries.length - 1 ? "last" : "middle";
+  const PLACEMENT_BY_INDEX: LeaderboardPlacement[] = ["first", "second", "third", "fourth"];
+  const placement = PLACEMENT_BY_INDEX[playerIndex];
 
   // § 5.3: crashing forfeits any leaderboard reward regardless of distance covered.
-  // The route x style multiplier only ever scales the +10 first-place bonus, never
-  // the flat -5 last-place penalty (the doc's own example never scales a penalty).
+  // The route x style multiplier only ever scales the positive 1st/2nd-place
+  // bonuses, never the flat last-place penalty (matches the doc's own example,
+  // which never scales a penalty). 2nd place is a smaller reward than 1st (half
+  // the base, same multiplier); 3rd is neutral; 4th (last) is unchanged.
+  // § 18: base rewards bumped (10->12, 5->6) and the last-place penalty
+  // softened (-5->-3), part of the game-wide "less penalty, easier reward" pass.
   const rewardMultiplier = ROUTE_CONFIG[route].rewardMultiplier * STYLE_CONFIG[skiStyle].rewardMultiplier;
   const vibeDelta = playerCrashed
     ? 0
     : placement === "first"
-      ? Math.round(10 * rewardMultiplier)
-      : placement === "last"
-        ? -5
-        : 0;
+      ? Math.round(12 * rewardMultiplier)
+      : placement === "second"
+        ? Math.round(6 * rewardMultiplier)
+        : placement === "fourth"
+          ? -3
+          : 0;
 
   return { entries, placement, vibeDelta };
 }
