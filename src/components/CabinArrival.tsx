@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { pickBroCatchupLine } from "../data/bro-catchup-lines";
 import { rollBroEvent } from "../game/rolls";
 import type { SegmentProps } from "../game/types";
 import { useOnEntry } from "../game/useOnEntry";
@@ -34,9 +35,7 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   });
 
   function talkToBros() {
-    setMessage(
-      "You catch up with the guys — same old stories, already feels like the trip's started.",
-    );
+    setMessage(pickBroCatchupLine());
   }
 
   function pickSkiStyle(style: "safety-first" | "balanced" | "full-send") {
@@ -68,7 +67,7 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={cabinArrivalImg} alt="Cabin arrival" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[54%] flex h-[10%] w-[94%] items-center justify-center overflow-hidden text-center text-[2rem] leading-tight">
+      <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-[2rem] leading-none">
         Get Checked In and Ready for The Slopes Tomorrow
       </div>
 

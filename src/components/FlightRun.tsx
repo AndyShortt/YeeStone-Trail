@@ -22,6 +22,10 @@ const OBSTACLE_VISUAL: Record<ObstacleType, { size: number; collisionThreshold: 
 };
 
 const CANVAS_SIZE = 500;
+// 3 labels x 1000ms = a 3-second countdown, both on first entry and on every
+// resume after a collision — was 500ms/label (1.5s total), which player
+// feedback said was too fast to get set before dodging started/resumed.
+const COUNTDOWN_STEP_MS = 1000;
 // Open sky "lanes" (no literal road) — kept away from the very top/bottom
 // edges so there's room for the ground-hint strip and the landmark below.
 const LANE_TOP = 90;
@@ -135,7 +139,7 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
         return;
       }
       setCountdownLabel(labels[i]);
-    }, 500);
+    }, COUNTDOWN_STEP_MS);
     return () => clearInterval(interval);
   }, [imagesLoaded, phase]);
 
@@ -331,15 +335,18 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
       const puffInterval = window.setInterval(puff, 16);
 
       // § 5: collisions no longer end the run — report this one, then
-      // resume, exactly mirroring DriveRun.tsx's collision handling. A short
-      // grace period on the next spawn gives the player a moment to
-      // reorient; obstacles were already cleared to empty the instant the
-      // collision was detected, so there's nothing left to instantly re-hit.
+      // resume, exactly mirroring DriveRun.tsx's collision handling. Resuming
+      // goes back through the same READY/SET/GO countdown as the initial
+      // start (not straight to "running") — the tick-loop-setup effect below
+      // only ever runs while phase === "running", so nothing spawns/moves
+      // during this second countdown either; obstacles were already cleared
+      // to empty the instant the collision was detected, so there's nothing
+      // to instantly re-hit once it resumes.
       const timer = setTimeout(() => {
         onCollision(s.elapsedMs);
         s.ended = false;
         s.nextSpawnAt = s.elapsedMs + 800;
-        setPhase("running");
+        setPhase("countdown");
       }, 700);
       return () => {
         clearInterval(puffInterval);

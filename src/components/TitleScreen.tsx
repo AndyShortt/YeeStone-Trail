@@ -76,6 +76,7 @@ function TitleScreen({ playthrough, onUpdate }: SegmentProps) {
             "Watch what you eat, or you could have trouble on the slopes.",
           ]}
           bodyTextClassName="text-[1.406rem]"
+          minHeightPx={260}
           onDismiss={() => setOverlay(null)}
         />
       )}

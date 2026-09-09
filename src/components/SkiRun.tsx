@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { RUN_DURATION_MS, ROUTE_CONFIG, STYLE_CONFIG, type Route, type SkiStyle } from "../game/ski";
+import { RUN_DURATION_MS, ROUTE_CONFIG, STYLE_CONFIG, computeVerticalFeet, type Route, type SkiStyle } from "../game/ski";
 
 const BG_IMG_SRC = "/images/minigame-ski-bg.png";
 const SKIER_IMG_SRC = "/images/minigame-ski-skier.png";
@@ -10,6 +10,13 @@ const YETI_IMG_SRC = "/images/minigame-ski-yeti.png";
 const CRASHED_SNOWBOARDER_IMG_SRC = "/images/minigame-ski-crashed-snowboarder.png";
 
 const CANVAS_SIZE = 500;
+// 3 labels x 1000ms = a 3-second countdown — was 550ms/label (1.65s total),
+// which player feedback said was too fast to get set before skiing started.
+// Also now used every time a non-severe crash resumes (see the "crashed"
+// phase effect below) — a severe crash still short-circuits the run, but a
+// minor/moderate one now behaves like Flight/Drive's collisions instead of
+// ending the run outright.
+const COUNTDOWN_STEP_MS = 1000;
 const HORIZON_Y = 130;
 const PLAYER_Y = 430;
 const CENTER_X = CANVAS_SIZE / 2;
@@ -58,6 +65,15 @@ interface SkiRunProps {
   route: Route;
   skiStyle: SkiStyle;
   riskPercent: number;
+  /**
+   * Fired once per crash (there can be several in one run now). The parent
+   * owns the actual injury roll/escalation (it already has the player's
+   * current injury state) and reports back whether this one was severe —
+   * true means the run is over and the parent is about to navigate away
+   * (e.g. to ending-injured), so this component should just stop; false
+   * means resume through the same READY/SET/GO countdown as the start.
+   */
+  onCrash: (elapsedMs: number) => boolean;
   onComplete: (result: SkiRunResult) => void;
 }
 
@@ -74,7 +90,7 @@ function laneTargetX(lane: number) {
   return CENTER_X - BOTTOM_HALF_WIDTH + t * BOTTOM_HALF_WIDTH * 2;
 }
 
-function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
+function SkiRun({ route, skiStyle, riskPercent, onCrash, onComplete }: SkiRunProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeTextRef = useRef<HTMLSpanElement>(null);
   const feetTextRef = useRef<HTMLSpanElement>(null);
@@ -94,9 +110,15 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
     nextObstacleId: 1,
     nextSpawnAt: 900,
     laneLastSpawn: new Array(NUM_LANES).fill(-Infinity) as number[],
-    runStart: 0,
+    // Accumulated tick-by-tick, like FlightRun.tsx/DriveRun.tsx — not derived
+    // from wall-clock time since mount, because that would count a crash's
+    // burst+countdown pause as elapsed skiing time once resuming (§ 14a: a
+    // run that resumes after crashing must not lose real ski time to the
+    // pause itself).
+    elapsedMs: 0,
     rafId: 0,
     crashParticles: [] as { x: number; y: number; vx: number; vy: number; life: number }[],
+    crashedEver: false,
     ended: false,
   });
 
@@ -138,12 +160,17 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       i += 1;
       if (i >= labels.length) {
         clearInterval(interval);
-        stateRef.current.runStart = performance.now();
+        // Same grace period whether this is the very first start (elapsedMs
+        // is still 0 here, so this lands close to the old flat 900ms) or a
+        // resume after a crash — obstacles were already cleared when the
+        // crash was detected, so there's nothing to instantly re-hit either
+        // way, but this still gives a beat before the next one spawns.
+        stateRef.current.nextSpawnAt = stateRef.current.elapsedMs + 600;
         setPhase("running");
         return;
       }
       setCountdownLabel(labels[i]);
-    }, 550);
+    }, COUNTDOWN_STEP_MS);
     return () => clearInterval(interval);
   }, [imagesLoaded, phase]);
 
@@ -175,7 +202,7 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
     const travelMs = BASE_TRAVEL_MS / (routeCfg.speedMultiplier * styleCfg.speedMultiplier);
     const riskSpawnFactor = 1 - riskPercent * 0.02;
 
-    function spawnMaybe(now: number, elapsed: number) {
+    function spawnMaybe(elapsed: number) {
       if (elapsed < s.nextSpawnAt) return;
       const progressT = Math.min(1, elapsed / RUN_DURATION_MS);
       const intervalBase = lerp(1300, 550, progressT) * routeCfg.spawnMultiplier * riskSpawnFactor;
@@ -183,7 +210,11 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       const laneOrder = [...Array(NUM_LANES).keys()].sort(() => Math.random() - 0.5);
       let chosenLane: number | null = null;
       for (const lane of laneOrder) {
-        if (now - s.laneLastSpawn[lane] > travelMs * 0.32) {
+        // Lane-gap tracking uses the same accumulated `elapsed` as
+        // everything else here (not wall-clock time) — a crash's
+        // burst+countdown pause must not make every lane look "overdue" the
+        // instant the run resumes.
+        if (elapsed - s.laneLastSpawn[lane] > travelMs * 0.32) {
           chosenLane = lane;
           break;
         }
@@ -205,12 +236,13 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
         y: HORIZON_Y,
         scale: MIN_SCALE,
       });
-      s.laneLastSpawn[chosenLane] = now;
+      s.laneLastSpawn[chosenLane] = elapsed;
       s.nextSpawnAt = elapsed + Math.max(320, intervalBase);
     }
 
-    function update(now: number, dt: number) {
-      const elapsed = now - s.runStart;
+    function update(dt: number) {
+      s.elapsedMs = Math.min(RUN_DURATION_MS, s.elapsedMs + dt);
+      const elapsed = s.elapsedMs;
       const prevXNorm = s.playerXNorm;
 
       // Direct speed, no accel/momentum: holding a direction moves at a fixed
@@ -239,7 +271,7 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       const instantRate = dt > 0 ? (s.playerXNorm - prevXNorm) / dt : 0;
       s.velocity += (instantRate - s.velocity) * 0.3;
 
-      spawnMaybe(now, elapsed);
+      spawnMaybe(elapsed);
 
       const playerPx = CENTER_X - PLAYER_MOVE_HALF_WIDTH + s.playerXNorm * PLAYER_MOVE_HALF_WIDTH * 2;
       const playerHitRadius = 20;
@@ -302,17 +334,19 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       const now = performance.now();
       const dt = Math.min(48, now - lastFrame);
       lastFrame = now;
-      const { crashedNow, elapsed, playerPx } = update(now, dt);
+      const { crashedNow, elapsed, playerPx } = update(dt);
       draw(playerPx);
 
       if (timeTextRef.current) timeTextRef.current.textContent = (elapsed / 1000).toFixed(1);
       if (feetTextRef.current) {
         const cap = 3000 * routeCfg.speedMultiplier * styleCfg.speedMultiplier;
-        feetTextRef.current.textContent = String(Math.min(Math.round(cap), Math.floor((elapsed / 1000) * 100 * routeCfg.speedMultiplier * styleCfg.speedMultiplier)));
+        feetTextRef.current.textContent = String(Math.min(Math.round(cap), computeVerticalFeet(elapsed, route, skiStyle)));
       }
 
       if (crashedNow && !s.ended) {
         s.ended = true;
+        s.crashedEver = true;
+        s.obstacles = []; // cleared so resuming doesn't instantly re-hit the same obstacle
         s.crashParticles = Array.from({ length: 14 }, () => ({
           x: playerPx,
           y: PLAYER_Y,
@@ -341,13 +375,6 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
     const s = stateRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    // § 14: route/style "descent speed" used to only affect obstacle-approach
-    // difficulty, never the score — a clean run always scored a flat 3000
-    // regardless of difficulty, so a perfect Black+Full-Send run could still
-    // lose to a rival's random roll (which goes up to 3999). Scaling
-    // verticalFeet by the same speed multiplier already used for difficulty
-    // means genuinely harder settings legitimately cover more ground.
-    const speedMultiplier = ROUTE_CONFIG[route].speedMultiplier * STYLE_CONFIG[skiStyle].speedMultiplier;
 
     if (phase === "crashed" && ctx) {
       let last = performance.now();
@@ -375,9 +402,18 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       };
       const burstInterval = window.setInterval(burst, 16);
 
+      // A crash no longer ends the run by itself — the parent owns the
+      // actual injury roll (it already tracks the player's current injury
+      // state) and reports back whether this one was severe. Severe means
+      // the parent is about to navigate away entirely (e.g. to
+      // ending-injured), so there's nothing further to do here; anything
+      // else resumes through the same READY/SET/GO countdown as the start.
       const timer = setTimeout(() => {
-        const elapsed = performance.now() - s.runStart;
-        onComplete({ crashed: true, elapsedMs: elapsed, verticalFeet: Math.floor((elapsed / 1000) * 100 * speedMultiplier) });
+        const severe = onCrash(s.elapsedMs);
+        if (!severe) {
+          s.ended = false;
+          setPhase("countdown");
+        }
       }, 1000);
       return () => {
         clearInterval(burstInterval);
@@ -388,9 +424,9 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
     if (phase === "finished") {
       const timer = setTimeout(() => {
         onComplete({
-          crashed: false,
+          crashed: s.crashedEver,
           elapsedMs: RUN_DURATION_MS,
-          verticalFeet: Math.floor((RUN_DURATION_MS / 1000) * 100 * speedMultiplier),
+          verticalFeet: computeVerticalFeet(RUN_DURATION_MS, route, skiStyle),
         });
       }, 700);
       return () => clearTimeout(timer);
@@ -466,7 +502,10 @@ function SkiRun({ route, skiStyle, riskPercent, onComplete }: SkiRunProps) {
       )}
 
       {phase === "running" && (
-        <div className="absolute bottom-[3%] left-[3%] right-[3%] flex justify-between text-xs text-cyan-100/70">
+        <div
+          className="absolute bottom-[3%] left-[3%] right-[3%] flex justify-between text-xs text-amber-100/90"
+          style={{ textShadow: "1px 1px 0 #000" }}
+        >
           <span>← / A</span>
           <span>Arrow keys, A/D, or drag to steer</span>
           <span>D / →</span>

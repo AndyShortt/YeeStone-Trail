@@ -29,6 +29,17 @@ export const STYLE_CONFIG: Record<
 };
 
 /**
+ * § 14 scoring formula, shared so the live HUD, a clean finish, and a
+ * severe mid-run exit's partial credit all agree: elapsed skiing time
+ * scaled by the same route x style speed multiplier used for dodge
+ * difficulty, so genuinely harder settings legitimately cover more ground.
+ */
+export function computeVerticalFeet(elapsedMs: number, route: Route, skiStyle: SkiStyle): number {
+  const speedMultiplier = ROUTE_CONFIG[route].speedMultiplier * STYLE_CONFIG[skiStyle].speedMultiplier;
+  return Math.floor((elapsedMs / 1000) * 100 * speedMultiplier);
+}
+
+/**
  * § 3.4 injury-risk formula. Unlike a hidden pass/fail dice roll, this feeds
  * mini-game DIFFICULTY (obstacle density/speed, see SkiRun.tsx) — whether the
  * player actually crashes is decided by real dodging, not this number. Only

@@ -3,6 +3,7 @@ import { professions } from "../data/professions";
 import type { Profession, SegmentProps } from "../game/types";
 
 const professionSelectImg = "/images/segment-0b-profession-select.png";
+const jonathanImg = "/images/npc-jonathan-cowboy.png";
 
 // Pixel-measured against the actual PNG (scanned for the card border lines),
 // not eyeballed — each card's real interior runs ~17-19% tall, and the tops
@@ -61,17 +62,24 @@ function ProfessionSelect({ onUpdate }: SegmentProps) {
             className="absolute flex h-full cursor-pointer flex-col items-end justify-start overflow-hidden pt-[1%] pr-[1.5%] text-right text-amber-950 hover:bg-amber-900/10"
             style={{ left: TEXT_LEFT, width: TEXT_WIDTH }}
           >
-            <span className="text-4xl leading-none">{profession.name}</span>
-            <span className="text-2xl leading-none opacity-80">
+            <span className="whitespace-nowrap text-base leading-none sm:text-4xl">{profession.name}</span>
+            <span className="whitespace-nowrap text-[0.6rem] leading-tight opacity-80 sm:whitespace-normal sm:text-2xl sm:leading-none">
               Cash: ${profession.startingMoney} — Starting Bragging Rights Level: {profession.startingVibe}
             </span>
           </button>
         </div>
       ))}
 
-      <div className="absolute left-[8%] top-[86%] flex h-[10%] w-[84%] items-center justify-center overflow-hidden px-2 text-center text-2xl text-amber-950">
+      <div className="absolute left-[8%] top-[86%] flex h-[10%] w-[84%] items-center justify-center overflow-hidden px-2 text-center text-sm leading-tight text-amber-950 sm:text-2xl">
         Where you coming from YeeDaddy?
       </div>
+
+      <img
+        src={jonathanImg}
+        alt="Jonathan, the trip organizer, dressed as a cowboy"
+        className="pointer-events-none absolute bottom-0 right-[-18%] w-[26%] select-none"
+        draggable={false}
+      />
     </div>
   );
 }

@@ -8,6 +8,8 @@ import OverlayPanel from "./shared/OverlayPanel";
 
 const cabinEveningImg = "/images/segment-7-cabin-evening.png";
 const dukeUncImg = "/images/special-duke-unc-game.png";
+const parkerCelebratingImg = "/images/npc-parker-celebrating.png";
+const parkerDefeatedImg = "/images/npc-parker-defeated.png";
 
 // § 10: dinner is once-per-visit (was 2). § 15: "Hang Out by the Fire" (and
 // its once-per-visit cap, and its own separate bro-event roll below) is
@@ -17,11 +19,18 @@ const FOOD_PURCHASE_CAP = 1;
 
 type Overlay = "dinner" | "injury" | null;
 type View = "main" | "duke-unc";
+// A real callback — last year Parker actually took his shirt off celebrating
+// a UNC win, which "Parker, put your shirt back on!" already jokes about in
+// the resolution text (§ 0 item 21). Tracks which cameo to show alongside
+// that result message, separate from `message` itself since `message` is
+// reused for the doctor-visit/rest-it-off outcomes too.
+type DukeUncCameo = "celebrating" | "defeated" | null;
 
 function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   const [view, setView] = useState<View>("main");
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [dukeUncCameo, setDukeUncCameo] = useState<DukeUncCameo>(null);
   const [entryMessage, setEntryMessage] = useState<string | null>(null);
   const [foodPurchases, setFoodPurchases] = useState(0);
   const [injuryCheckUsed, setInjuryCheckUsed] = useState(false);
@@ -138,6 +147,7 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     }));
     setView("main");
     setMessage(line);
+    setDukeUncCameo(uncWins ? "celebrating" : "defeated");
   }
 
   // § 10: renamed from "Rest for the Night" — always advances to the next
@@ -249,14 +259,29 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
       {!entryMessage && overlay === "injury" && (
         <OverlayPanel
           options={[
-            { label: "See the doctor (-2 vibe)", onSelect: seeDoctor },
+            { label: "See the doctor (-2 Bragging Rights)", onSelect: seeDoctor },
             { label: "Rest it off (tough it out)", onSelect: restItOff },
           ]}
         />
       )}
 
       {!entryMessage && !overlay && message && (
-        <OverlayPanel body={message} onDismiss={() => setMessage(null)} />
+        <OverlayPanel
+          body={message}
+          onDismiss={() => {
+            setMessage(null);
+            setDukeUncCameo(null);
+          }}
+        />
+      )}
+
+      {!entryMessage && !overlay && message && dukeUncCameo && (
+        <img
+          src={dukeUncCameo === "celebrating" ? parkerCelebratingImg : parkerDefeatedImg}
+          alt={dukeUncCameo === "celebrating" ? "Parker, celebrating UNC's win" : "Parker, dejected after Duke's win"}
+          className="pointer-events-none absolute bottom-[36%] right-[2%] h-[40%] w-auto select-none"
+          draggable={false}
+        />
       )}
     </div>
   );

@@ -41,7 +41,8 @@ function Ending({ playthrough, onUpdate }: SegmentProps) {
 
       <div className="absolute left-[68%] top-[2%] flex h-[16%] w-[30%] flex-col items-center justify-center gap-0.5 overflow-hidden px-1 text-center text-sm leading-tight text-amber-950">
         <p>{tier.name}</p>
-        <p>Bragging Rights Level: {playthrough.vibePoints}/100</p>
+        <p className="text-xs">Bragging Rights Level:</p>
+        <p className="text-xs">{playthrough.vibePoints}/100</p>
       </div>
 
       <OverlayPanel body={tagline} />

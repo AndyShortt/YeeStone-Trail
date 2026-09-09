@@ -9,11 +9,30 @@ const OBSTACLE_IMG_SRC: Record<DriveObstacleType, string> = {
   car: "/images/progress-obstacle-car.png",
   truck: "/images/progress-obstacle-truck.png",
   wreck: "/images/progress-obstacle-wreck.png",
+  wagon: "/images/progress-obstacle-wagon.png",
+  train: "/images/progress-obstacle-train.png",
   cowboy: "/images/progress-obstacle-cowboy.png",
   "alien-ufo": "/images/progress-obstacle-alien-ufo.png",
 };
+// imagesRef preload keys for each obstacle type — "truck" and "alien-ufo"
+// need to differ from their type name (the former would collide with the
+// player truck's own "truck" key, the latter isn't a valid bare key);
+// everything else's preload key already matches its type name directly.
+const OBSTACLE_TO_IMAGE_KEY: Record<DriveObstacleType, string> = {
+  car: "car",
+  truck: "truckObstacle",
+  wreck: "wreck",
+  wagon: "wagon",
+  train: "train",
+  cowboy: "cowboy",
+  "alien-ufo": "alienUfo",
+};
 
 const CANVAS_SIZE = 500;
+// 3 labels x 1000ms = a 3-second countdown, both on first entry and on every
+// resume after a collision — was 500ms/label (1.5s total), which player
+// feedback said was too fast to get set before dodging started/resumed.
+const COUNTDOWN_STEP_MS = 1000;
 // Pixel-measured against the actual progress-drive-bg.png (1024px tall): the
 // paved road band (including its edge stripes) runs from y=604 to y=863.
 const ROAD_TOP = 295;
@@ -25,6 +44,23 @@ const OBSTACLE_TRAVEL_MS = 1800;
 const COLLISION_THRESHOLD = 30;
 const TRUCK_SIZE = 56;
 const OBSTACLE_SIZE = 52;
+// § 0 item 23: a lane used to stay "occupied" (blocked from a new spawn) for
+// an obstacle's entire 1800ms trip, but the spawn interval (~400-700ms at
+// these tuned rates) is much shorter than that — so with only 3 lanes,
+// 2-3 were almost always mid-flight at once, leaving just 1 open lane for
+// nearly every spawn. Math.random() was already being called, it just had
+// nothing left to choose from, which read as a fixed lane-rotation rather
+// than randomness. Freeing a lane once its obstacle is safely past the
+// midpoint (confirmed via live logging: at t=0.45 it's still comfortably in
+// the far half of the canvas, ~200px ahead of a freshly-spawned one in the
+// same lane — no visual overlap) gives 2+ open lanes most of the time.
+const LANE_REOPEN_AT = 0.45;
+// Spawn interval used to be perfectly regular (elapsedMs + intervalMs, no
+// variance), which reads as metronomic/scripted even when lane and type
+// genuinely are random. +/-25% jitter keeps the same average pace (so the
+// difficulty ramp from startSpawnPerSec to endSpawnPerSec is unaffected)
+// while breaking up the beat.
+const SPAWN_JITTER = 0.25;
 
 // § 11/§ 12: Costco grows in near the end of leg 1 (Walter's stop), the
 // cabin near the end of leg 2 — same bottom-anchored fade-in technique
@@ -76,6 +112,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
     obstacles: [] as DriveObstacle[],
     nextObstacleId: 1,
     nextSpawnAt: 500,
+    lastObstacleType: null as DriveObstacleType | null,
     crashParticles: [] as { x: number; y: number; vx: number; vy: number; life: number }[],
     ended: false,
     intervalId: 0,
@@ -90,6 +127,8 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       car: OBSTACLE_IMG_SRC.car,
       truckObstacle: OBSTACLE_IMG_SRC.truck,
       wreck: OBSTACLE_IMG_SRC.wreck,
+      wagon: OBSTACLE_IMG_SRC.wagon,
+      train: OBSTACLE_IMG_SRC.train,
       cowboy: OBSTACLE_IMG_SRC.cowboy,
       alienUfo: OBSTACLE_IMG_SRC["alien-ufo"],
     };
@@ -125,7 +164,7 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
         return;
       }
       setCountdownLabel(labels[i]);
-    }, 500);
+    }, COUNTDOWN_STEP_MS);
     return () => clearInterval(interval);
   }, [imagesLoaded, phase]);
 
@@ -169,7 +208,13 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       const spawnPerSec = startSpawnPerSec + (endSpawnPerSec - startSpawnPerSec) * progressT;
       const intervalMs = 1000 / Math.max(0.1, spawnPerSec);
 
-      const occupiedLanes = new Set(s.obstacles.map((o) => o.lane));
+      // A lane only counts as occupied while its obstacle is still in the
+      // first LANE_REOPEN_AT share of its trip — see the constant's comment
+      // above for why the old "occupied for the whole trip" version starved
+      // Math.random() down to a single forced choice almost every time.
+      const occupiedLanes = new Set(
+        s.obstacles.filter((o) => (s.elapsedMs - o.spawnAt) / OBSTACLE_TRAVEL_MS < LANE_REOPEN_AT).map((o) => o.lane),
+      );
       const openLanes = [...Array(NUM_LANES).keys()].filter((l) => !occupiedLanes.has(l));
       if (openLanes.length === 0) {
         s.nextSpawnAt = s.elapsedMs + 150;
@@ -177,9 +222,15 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       }
       const lane = openLanes[Math.floor(Math.random() * openLanes.length)];
       const pool = obstaclePoolForLeg(s.elapsedMs < firstLegMs ? 1 : 2);
-      const type = pool[Math.floor(Math.random() * pool.length)];
+      // Exclude whatever just spawned so the same type can't repeat back to
+      // back — the pool always has 6 types (§ 0 item 23), so this never
+      // empties out.
+      const candidates = pool.filter((t) => t !== s.lastObstacleType);
+      const typePool = candidates.length > 0 ? candidates : pool;
+      const type = typePool[Math.floor(Math.random() * typePool.length)];
+      s.lastObstacleType = type;
       s.obstacles.push({ id: s.nextObstacleId++, lane, type, spawnAt: s.elapsedMs, x: SPAWN_X });
-      s.nextSpawnAt = s.elapsedMs + intervalMs;
+      s.nextSpawnAt = s.elapsedMs + intervalMs * (1 - SPAWN_JITTER + Math.random() * SPAWN_JITTER * 2);
     }
 
     function update(dt: number) {
@@ -230,16 +281,11 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
 
       const sorted = [...s.obstacles].sort((a, b) => a.x - b.x);
       for (const ob of sorted) {
-        const key =
-          ob.type === "car"
-            ? "car"
-            : ob.type === "truck"
-              ? "truckObstacle"
-              : ob.type === "wreck"
-                ? "wreck"
-                : ob.type === "cowboy"
-                  ? "cowboy"
-                  : "alienUfo";
+        // "truck" and "alien-ufo" need different imagesRef keys (the former
+        // would otherwise collide with the player truck's own "truck" key,
+        // the latter isn't a valid bare key) — everything else's type name
+        // already matches its preload key directly.
+        const key = OBSTACLE_TO_IMAGE_KEY[ob.type];
         const img = imagesRef.current[key];
         if (img?.complete && img.naturalWidth > 0) {
           ctx!.drawImage(img, ob.x - OBSTACLE_SIZE / 2, laneY(ob.lane) - OBSTACLE_SIZE / 2, OBSTACLE_SIZE, OBSTACLE_SIZE);
@@ -329,15 +375,18 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       const burstInterval = window.setInterval(burst, 16);
 
       // § 4: collisions no longer end the run — report this one, then
-      // resume. A short grace period on the next spawn (rather than a
-      // separate time-based invincibility flag) gives the player a moment to
-      // reorient; obstacles were already cleared to empty the instant the
-      // collision was detected, so there's nothing left to instantly re-hit.
+      // resume. Resuming goes back through the same READY/SET/GO countdown
+      // as the initial start (not straight to "running") — the
+      // tick-loop-setup effect below only ever runs while phase ===
+      // "running", so nothing spawns/moves during this second countdown
+      // either; obstacles were already cleared to empty the instant the
+      // collision was detected, so there's nothing to instantly re-hit once
+      // it resumes.
       const timer = setTimeout(() => {
         onCollision(s.elapsedMs);
         s.ended = false;
         s.nextSpawnAt = s.elapsedMs + 800;
-        setPhase("running");
+        setPhase("countdown");
       }, 700);
       return () => {
         clearInterval(burstInterval);

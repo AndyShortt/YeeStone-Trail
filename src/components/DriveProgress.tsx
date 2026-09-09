@@ -4,10 +4,18 @@ import { getDriveConfig } from "../game/drive";
 import { rollInjurySeverity, upgradeSeverity } from "../game/ski";
 import type { SegmentProps } from "../game/types";
 import DriveRun from "./DriveRun";
+import OverlayPanel from "./shared/OverlayPanel";
 import ProgressStatusBar from "./shared/ProgressStatusBar";
 import WalterStop from "./shared/WalterStop";
 
 const WEATHER_FLAVOR = ["Sunny", "Light snow", "Bluebird", "Windy mountain pass"];
+// § 0 item 24: a collision used to silently roll an injury with no on-screen
+// feedback at all — a QA pass found the player could arrive at the cabin
+// already "moderately injured" purely from a rough drive, discoverable only
+// by later opening Check Status. Now shows a brief non-blocking message
+// (same pattern/duration as FlightProgress.tsx's collision message) without
+// pausing the drive underneath it.
+const COLLISION_MESSAGE_MS = 1800;
 
 const INJURY_NAME: Record<"minor" | "moderate", string> = {
   minor: "twisted ankle",
@@ -41,10 +49,14 @@ function DriveProgress({ playthrough, onUpdate }: SegmentProps) {
   const config = getDriveConfig(playthrough.skiRentalLocation);
   const totalDurationMs = config.firstLegMs + config.secondLegMs;
   const hourMs = totalDurationMs / 3;
+  // Both the eventLog line and the status bar used to say "to Keystone"
+  // unconditionally, even on the Frisco route.
+  const destinationLabel = playthrough.skiRentalLocation === "frisco" ? "Frisco" : "Keystone";
 
   const [elapsedMs, setElapsedMs] = useState(0);
   const [paused, setPaused] = useState(false);
   const [arrived, setArrived] = useState(false);
+  const [collisionMessage, setCollisionMessage] = useState<string | null>(null);
 
   const [weather] = useState(() => WEATHER_FLAVOR[Math.floor(Math.random() * WEATHER_FLAVOR.length)]);
   const lastHourTicked = useRef(0);
@@ -78,11 +90,13 @@ function DriveProgress({ playthrough, onUpdate }: SegmentProps) {
     setElapsedMs(ms);
   }
 
-  // Applied silently (no dismissible message) — a busy run can collide more
-  // than once, and stopping for a modal every time would fight the "just
-  // keep driving" feel § 4 asks for. Each hit is its own independent -5
-  // vibe + injury roll (upgrade-only-if-already-injured, capped at moderate —
-  // same formula as § 0.11 already used for the old single-crash case).
+  // § 0 item 24: a busy run can collide more than once, so this stays
+  // non-blocking (a brief message, not a dismiss-to-continue modal) rather
+  // than fighting the "just keep driving" feel § 4 asks for — but it's no
+  // longer silent either; each hit now shows what happened for a moment.
+  // Each hit is its own independent -5 vibe + injury roll
+  // (upgrade-only-if-already-injured, capped at moderate — same formula as
+  // § 0.11 already used for the old single-crash case).
   function handleCollision() {
     hadCollision.current = true;
     const rolled = rollInjurySeverity();
@@ -90,13 +104,15 @@ function DriveProgress({ playthrough, onUpdate }: SegmentProps) {
     const finalSeverity = upgradeSeverity(playthrough.injury?.severity ?? null, capped);
     const dailyPenalty = finalSeverity === "moderate" ? -2 : -1; // § 18: was -3
     const injuryLabel = INJURY_NAME[finalSeverity];
+    const message = `Fender-bender on the drive to ${destinationLabel} — ${injuryLabel} (${finalSeverity}).`;
 
     onUpdate((prev) => ({
       ...prev,
       vibePoints: prev.vibePoints - 5,
       injury: { severity: finalSeverity, dailyPenalty, treated: false },
-      eventLog: [...prev.eventLog, `Fender-bender on the drive to Keystone — ${injuryLabel} (${finalSeverity}).`],
+      eventLog: [...prev.eventLog, message],
     }));
+    setCollisionMessage(message);
   }
 
   function handleFinish() {
@@ -115,6 +131,12 @@ function DriveProgress({ playthrough, onUpdate }: SegmentProps) {
     }, 900);
     return () => clearTimeout(timer);
   }, [arrived, onUpdate]);
+
+  useEffect(() => {
+    if (!collisionMessage) return;
+    const timer = setTimeout(() => setCollisionMessage(null), COLLISION_MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [collisionMessage]);
 
   const hoursRemaining = Math.max(0, 3 - Math.floor(elapsedMs / hourMs));
 
@@ -136,9 +158,10 @@ function DriveProgress({ playthrough, onUpdate }: SegmentProps) {
         health={getHealthLabel(playthrough.injury)}
         hunger={getHungerLabel(playthrough.hungerLevel)}
         nextLandmark={checkpointShown.current ? "The cabin" : "Costco"}
-        progressLabel={arrived ? "Arriving..." : `${hoursRemaining} hr${hoursRemaining === 1 ? "" : "s"} to Keystone`}
+        progressLabel={arrived ? "Arriving..." : `${hoursRemaining} hr${hoursRemaining === 1 ? "" : "s"} to ${destinationLabel}`}
       />
       {paused && <WalterStop playthrough={playthrough} onUpdate={onUpdate} onDone={() => setPaused(false)} />}
+      {!paused && collisionMessage && <OverlayPanel body={collisionMessage} />}
     </div>
   );
 }

@@ -14,9 +14,18 @@ interface OverlayPanelProps {
   onDismiss?: () => void;
   /** Overrides the body paragraphs' text-size class (default "text-lg") for this call only. */
   bodyTextClassName?: string;
+  /**
+   * Floors the panel's height above its normal aspect-[1024/384]-derived
+   * value, for a call whose content doesn't fit the ~5-6-line budget that
+   * ratio gives at text-lg (e.g. a longer body at a deliberately larger
+   * bodyTextClassName). The background image still stretches to fill the
+   * taller box — fine for the parchment texture/border at a modest bump,
+   * but this isn't meant for large increases.
+   */
+  minHeightPx?: number;
 }
 
-function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg" }: OverlayPanelProps) {
+function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg", minHeightPx }: OverlayPanelProps) {
   const paragraphs = body === undefined ? [] : Array.isArray(body) ? body : [body];
   const hasOptions = Boolean(options && options.length > 0);
 
@@ -44,6 +53,7 @@ function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg" 
   return (
     <div
       className="absolute inset-x-0 bottom-0 aspect-[1024/384] w-full select-none bg-amber-200"
+      style={minHeightPx ? { minHeight: `${minHeightPx}px` } : undefined}
       onClick={() => {
         if (!hasOptions) {
           onDismiss?.();

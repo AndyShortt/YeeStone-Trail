@@ -25,6 +25,9 @@ dist-ssr
 
 # Pre-chroma-key intermediate art (generate_progression_assets.py debug output)
 public/images/_raw_*.png
+# Temporary real-photo references copied in for images.edit() likeness prompts —
+# never meant to be committed (real photos of real people, public repo)
+public/images/_ref_*.png
 
 # Editor directories and files
 .vscode/*

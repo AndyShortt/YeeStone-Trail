@@ -24,7 +24,7 @@ export const professions: Profession[] = [
   },
   {
     id: "tech-bro",
-    name: "Tech Bro From California",
+    name: "Techie From California",
     location: "California",
     startingVibe: 50,
     startingMoney: 350, // BALANCE-PATCH-2026-09-05: was 600

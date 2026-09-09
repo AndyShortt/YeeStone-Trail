@@ -60,24 +60,20 @@ const segmentComponents: Record<SegmentId, ComponentType<SegmentProps>> = {
   "ending-injured": EndingInjured,
 };
 
-// § 2: Map/Status are available from any segment from flight-progress onward,
-// not during Segment 0's setup screens. The two 7s walk screens skip chrome
-// (same as ending/ending-injured skip it) — nothing to check mid-animation.
-const SEGMENTS_WITH_CHROME = new Set<SegmentId>([
-  "flight-progress",
-  "denver-airport",
-  "drive-progress",
-  "cabin-arrival",
-  "ski-day",
-  "cabin-evening",
-  "journey-home",
-]);
-
 function App() {
   const [playthrough, setPlaythrough] = useState<GamePlaythrough>(createInitialState);
+  // § 0 item 24: the persistent top-right Map/Status buttons were removed —
+  // they didn't pause the real-time mini-games underneath them (a collision
+  // could happen invisibly behind the Status panel) and could sit on top of
+  // a segment's own title text without fully covering it. `globalOverlay`
+  // itself stays: several segments still open Check Status as their own
+  // numbered menu option (CabinArrival, DenverAirport, SkiDay, CabinEvening)
+  // via `onShowOverlay`, which is unaffected by removing the floating
+  // buttons. Map has no such in-menu entry point anymore and is only
+  // reachable pre-game from the title screen now — an accepted tradeoff of
+  // removing the buttons outright rather than trying to fix their layering.
   const [globalOverlay, setGlobalOverlay] = useState<"map" | "status" | null>(null);
   const SegmentComponent = segmentComponents[playthrough.currentSegment];
-  const showChrome = SEGMENTS_WITH_CHROME.has(playthrough.currentSegment);
 
   // The base progression screens (flight/drive) can auto-advance to the next
   // segment on their own timer while Map/Status is open — close it on every
@@ -96,25 +92,6 @@ function App() {
           onUpdate={setPlaythrough}
           onShowOverlay={setGlobalOverlay}
         />
-
-        {showChrome && globalOverlay === null && (
-          <div className="absolute right-[2%] top-[2%] z-10 flex gap-1">
-            <button
-              type="button"
-              onClick={() => setGlobalOverlay("map")}
-              className="cursor-pointer rounded border border-black/40 bg-amber-100/90 px-2 py-1 text-xs font-bold text-amber-950 hover:bg-amber-100"
-            >
-              Map
-            </button>
-            <button
-              type="button"
-              onClick={() => setGlobalOverlay("status")}
-              className="cursor-pointer rounded border border-black/40 bg-amber-100/90 px-2 py-1 text-xs font-bold text-amber-950 hover:bg-amber-100"
-            >
-              Status
-            </button>
-          </div>
-        )}
 
         {globalOverlay === "map" && (
           <MapScreen playthrough={playthrough} onClose={() => setGlobalOverlay(null)} />

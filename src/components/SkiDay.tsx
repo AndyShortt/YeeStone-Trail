@@ -3,6 +3,7 @@ import { rollBroEvent } from "../game/rolls";
 import {
   buildLeaderboard,
   computeInjuryRiskPercent,
+  computeVerticalFeet,
   rollInjurySeverity,
   upgradeSeverity,
   type LeaderboardResult,
@@ -88,11 +89,12 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     setResultData(null);
   }
 
-  function handleRunComplete(result: SkiRunResult) {
-    const route = activeRun!.route;
-    const day = playthrough.currentSkiDay ?? "thursday";
+  // Shared by handleCrash's severe branch and handleRunComplete — mutually
+  // exclusive call sites (a severe crash exits straight to ending-injured
+  // and never reaches handleRunComplete), so there's no risk of this rolling
+  // twice for the same run.
+  function checkPuddleBritches() {
     const preName = playthrough.displayName ?? playthrough.playerName ?? "You";
-    const skiStyle = playthrough.skiStyle ?? "balanced";
     const triggersPuddle =
       !playthrough.puddleBritchesTriggered &&
       playthrough.mealsEaten >= MEALS_EATEN_THRESHOLD &&
@@ -108,58 +110,66 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
           'Instantly rechristened "Puddle Britches." The group chat will never let this go.',
         ]
       : [];
+    return { triggersPuddle, leaderboardName, puddleLines };
+  }
+
+  // § 0 item 22: a crash no longer ends the run outright — it now resumes,
+  // mirroring Flight/Drive's collisions — so this fires once per crash
+  // (there can be more than one in a run) rather than once at the very end.
+  // The injury roll/escalation lives here, not in handleRunComplete, since
+  // this is where the player's current (possibly already-injured-this-run)
+  // state lives. Returns true if this crash was severe — SkiRun.tsx reads
+  // that as "stop, don't resume," since this has already navigated the
+  // whole game away to ending-injured by the time it returns.
+  function handleCrash(elapsedMs: number): boolean {
+    const route = activeRun!.route;
+    const day = playthrough.currentSkiDay ?? "thursday";
+    const skiStyle = playthrough.skiStyle ?? "balanced";
+    const rolled = rollInjurySeverity();
+
+    if (rolled === "severe") {
+      const { triggersPuddle } = checkPuddleBritches();
+      const verticalFeet = computeVerticalFeet(elapsedMs, route, skiStyle);
+      onUpdate((prev) => ({
+        ...prev,
+        severeInjuryExit: true,
+        currentSegment: "ending-injured",
+        vibePoints: prev.vibePoints - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
+        puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
+        eventLog: [...prev.eventLog, `Wiped out hard on the ${route} run and had to be evacuated.`],
+        completedSkiDays: [
+          ...prev.completedSkiDays,
+          { day, route, crashed: true, verticalFeet, leaderboardPlacement: "fourth" },
+        ],
+      }));
+      return true;
+    }
+
+    const finalSeverity = upgradeSeverity(playthrough.injury?.severity ?? null, rolled);
+    const dailyPenalty = finalSeverity === "moderate" ? -2 : -1; // § 18: was -3
+    const injuryLabel = INJURY_NAME[finalSeverity];
+    onUpdate((prev) => ({
+      ...prev,
+      injury: { severity: finalSeverity, dailyPenalty, treated: false },
+      eventLog: [...prev.eventLog, `Crashed on the ${route} run — ${injuryLabel} (${finalSeverity}).`],
+    }));
+    return false;
+  }
+
+  function handleRunComplete(result: SkiRunResult) {
+    const route = activeRun!.route;
+    const day = playthrough.currentSkiDay ?? "thursday";
+    const skiStyle = playthrough.skiStyle ?? "balanced";
+    const { triggersPuddle, leaderboardName, puddleLines } = checkPuddleBritches();
 
     setActiveRun(null);
 
-    if (result.crashed) {
-      const rolled = rollInjurySeverity();
-
-      if (rolled === "severe") {
-        onUpdate((prev) => ({
-          ...prev,
-          severeInjuryExit: true,
-          currentSegment: "ending-injured",
-          vibePoints: prev.vibePoints - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
-          puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
-          eventLog: [...prev.eventLog, `Wiped out hard on the ${route} run and had to be evacuated.`],
-          completedSkiDays: [
-            ...prev.completedSkiDays,
-            { day, route, crashed: true, verticalFeet: result.verticalFeet, leaderboardPlacement: "fourth" },
-          ],
-        }));
-        return;
-      }
-
-      const finalSeverity = upgradeSeverity(playthrough.injury?.severity ?? null, rolled);
-      const dailyPenalty = finalSeverity === "moderate" ? -2 : -1; // § 18: was -3
-      const injuryLabel = INJURY_NAME[finalSeverity];
-      const board = buildLeaderboard(leaderboardName, result.verticalFeet, true, route, skiStyle);
-
-      onUpdate((prev) => ({
-        ...prev,
-        injury: { severity: finalSeverity, dailyPenalty, treated: false },
-        vibePoints: prev.vibePoints - (triggersPuddle ? PUDDLE_BRITCHES_VIBE_PENALTY : 0),
-        puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
-        eventLog: [...prev.eventLog, `Crashed on the ${route} run — ${injuryLabel} (${finalSeverity}).`],
-        completedSkiDays: [
-          ...prev.completedSkiDays,
-          { day, route, crashed: true, verticalFeet: result.verticalFeet, leaderboardPlacement: board.placement },
-        ],
-      }));
-
-      setResultData({
-        puddleLines,
-        outcomeLines: [
-          `You wipe out on the ${route} run.`,
-          `${injuryLabel[0].toUpperCase()}${injuryLabel.slice(1)} — ${finalSeverity} injury.`,
-        ],
-        leaderboardLines: formatLeaderboardLines(board),
-      });
-      setResultStage(triggersPuddle ? "puddle" : "outcome");
-      return;
-    }
-
-    const board = buildLeaderboard(leaderboardName, result.verticalFeet, false, route, skiStyle);
+    // Any injury from a crash mid-run was already applied by handleCrash as
+    // it happened — result.crashed here just means "crashed at least once
+    // but still made it down" (a severe crash never reaches this function at
+    // all). Crashing still forfeits the leaderboard reward, same as before —
+    // buildLeaderboard already zeroes vibeDelta whenever playerCrashed is true.
+    const board = buildLeaderboard(leaderboardName, result.verticalFeet, result.crashed, route, skiStyle);
 
     onUpdate((prev) => ({
       ...prev,
@@ -167,17 +177,21 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
       puddleBritchesTriggered: prev.puddleBritchesTriggered || triggersPuddle,
       eventLog: [
         ...prev.eventLog,
-        `${route[0].toUpperCase()}${route.slice(1)} run: ${result.verticalFeet} ft, placed ${board.placement}.`,
+        result.crashed
+          ? `Crashed on the ${route} run but made it down — ${result.verticalFeet} ft.`
+          : `${route[0].toUpperCase()}${route.slice(1)} run: ${result.verticalFeet} ft, placed ${board.placement}.`,
       ],
       completedSkiDays: [
         ...prev.completedSkiDays,
-        { day, route, crashed: false, verticalFeet: result.verticalFeet, leaderboardPlacement: board.placement },
+        { day, route, crashed: result.crashed, verticalFeet: result.verticalFeet, leaderboardPlacement: board.placement },
       ],
     }));
 
     setResultData({
       puddleLines,
-      outcomeLines: [`You made it down the ${route} run clean!`, `${result.verticalFeet} vertical feet.`],
+      outcomeLines: result.crashed
+        ? [`You crashed on the ${route} run, but made it down.`, `${result.verticalFeet} vertical feet.`]
+        : [`You made it down the ${route} run clean!`, `${result.verticalFeet} vertical feet.`],
       leaderboardLines: formatLeaderboardLines(board),
     });
     setResultStage(triggersPuddle ? "puddle" : "outcome");
@@ -203,7 +217,13 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
   if (activeRun) {
     return (
       <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
-        <SkiRun route={activeRun.route} skiStyle={playthrough.skiStyle ?? "balanced"} riskPercent={activeRun.riskPercent} onComplete={handleRunComplete} />
+        <SkiRun
+          route={activeRun.route}
+          skiStyle={playthrough.skiStyle ?? "balanced"}
+          riskPercent={activeRun.riskPercent}
+          onCrash={handleCrash}
+          onComplete={handleRunComplete}
+        />
       </div>
     );
   }
