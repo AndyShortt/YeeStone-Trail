@@ -24,8 +24,9 @@ export const DRIVE_ROUTE_CONFIG: Record<
   RentalLocation,
   { firstLegMs: number; secondLegMs: number; startSpawnPerSec: number; endSpawnPerSec: number }
 > = {
-  keystone: { firstLegMs: 8_000, secondLegMs: 10_000, startSpawnPerSec: 1, endSpawnPerSec: 2 },
-  frisco: { firstLegMs: 8_000, secondLegMs: 10_000, startSpawnPerSec: 1.5, endSpawnPerSec: 2.5 },
+  // Spawn rates +10% across the board (were 1/2 and 1.5/2.5).
+  keystone: { firstLegMs: 8_000, secondLegMs: 10_000, startSpawnPerSec: 1.1, endSpawnPerSec: 2.2 },
+  frisco: { firstLegMs: 8_000, secondLegMs: 10_000, startSpawnPerSec: 1.65, endSpawnPerSec: 2.75 },
 };
 
 export function getDriveConfig(location: GamePlaythrough["skiRentalLocation"]) {

@@ -107,7 +107,7 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     const puddleLines = triggersPuddle
       ? [
           `${preName} felt a rumbling in the gut on the way down...`,
-          'Instantly rechristened "Puddle Britches." The group chat will never let this go.',
+          "Didn't make it to the lodge in time! You've been re-named: Puddle Britches.",
         ]
       : [];
     return { triggersPuddle, leaderboardName, puddleLines };

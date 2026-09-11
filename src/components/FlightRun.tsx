@@ -271,11 +271,15 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
         if (crashedNow && !s.ended) {
           s.ended = true;
           s.obstacles = []; // cleared so resuming (§ 5) doesn't instantly re-collide
-          // A trailing smoke puff, not an outward debris burst — fewer, slower,
-          // gray-white particles drifting up/back rather than exploding out.
+          // Trails from the tail (the plane sprite faces right, tail fin at its
+          // left edge — see progress-plane.png) rather than bursting outward
+          // from center, so the plane itself stays visible and recognizable
+          // underneath instead of vanishing behind an explosion-like burst.
+          const tailX = PLANE_X - PLANE_SIZE * 0.32;
+          const tailY = s.planeY - PLANE_SIZE * 0.12;
           s.smokeParticles = Array.from({ length: 8 }, () => ({
-            x: PLANE_X,
-            y: s.planeY,
+            x: tailX,
+            y: tailY,
             vx: -1 - Math.random() * 1.5,
             vy: -(Math.random() * 1.5),
             life: 1,
@@ -316,6 +320,12 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
         const bg = imagesRef.current.bg;
         if (bg?.complete) ctx.drawImage(bg, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        // The plane stays put and visible — smoking, not gone — matching the
+        // softer "getting bumpy" framing instead of reading as a crash.
+        const planeImg = imagesRef.current.plane;
+        if (planeImg?.complete && planeImg.naturalWidth > 0) {
+          ctx.drawImage(planeImg, PLANE_X - PLANE_SIZE / 2, s.planeY - PLANE_SIZE / 2, PLANE_SIZE, PLANE_SIZE);
+        }
         s.smokeParticles.forEach((p) => {
           p.x += p.vx * (dt / 16);
           p.y += p.vy * (dt / 16);

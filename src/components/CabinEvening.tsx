@@ -126,15 +126,17 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
         line = "UNC pulls it out! The cabin erupts. Parker, put your shirt back on!";
       } else {
         vibeDelta = -2;
-        line = "Duke wins. Rough night for the UNC fans in the room.";
+        line = "Duke wins. Rough night for Parker and the rest of the UNC fans in the room.";
       }
     } else if (choice === "duke") {
       vibeDelta = uncWins ? -3 : 8;
       line = uncWins
         ? "UNC wins. You cheered for Duke anyway — respect, but the room won't let you forget it. Parker, put your shirt back on!"
-        : "Duke wins! Vindication, in a room full of UNC fans.";
+        : "Duke wins! Vindication, in a room full of UNC fans — rough night for Parker.";
     } else {
-      line = uncWins ? "UNC wins. You really didn't care either way." : "Duke wins. You really didn't care either way.";
+      line = uncWins
+        ? "UNC wins. You really didn't care either way — Parker sure did; shirt's already off."
+        : "Duke wins. You really didn't care either way. Rough night for Parker, though.";
     }
 
     onUpdate((prev) => ({
