@@ -72,7 +72,7 @@ function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
       {/* § 8: regenerated as one simple panel (took 3 attempts — the model
           kept reproducing the old square+3-strips grid until the prompt
           explicitly named and forbade that exact pattern). */}
-      <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-2 overflow-hidden px-2 text-xl leading-tight">
+      <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
         <button type="button" onClick={() => setOverlay("snack")} className="cursor-pointer text-left hover:text-amber-700">
           1. Shop for snacks
         </button>

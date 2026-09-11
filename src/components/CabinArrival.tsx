@@ -67,11 +67,11 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={cabinArrivalImg} alt="Cabin arrival" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-[2rem] leading-none">
+      <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-base leading-tight sm:text-[2rem] sm:leading-none">
         Get Checked In and Ready for The Slopes Tomorrow
       </div>
 
-      <div className="absolute left-[2%] top-[65%] flex h-[32%] w-[96%] flex-col justify-center gap-2 overflow-hidden px-2 text-xl leading-tight">
+      <div className="absolute left-[2%] top-[65%] flex h-[32%] w-[96%] flex-col justify-center gap-1 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
         <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
           1. Check your status
         </button>

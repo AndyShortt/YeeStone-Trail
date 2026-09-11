@@ -36,32 +36,32 @@ function TitleScreen({ playthrough, onUpdate }: SegmentProps) {
         draggable={false}
       />
 
-      <div className="absolute left-[4%] top-[76%] flex h-[19%] w-[92%] flex-col items-center justify-center gap-1 px-2 text-amber-100">
+      <div className="absolute left-[4%] top-[76%] flex h-[19%] w-[92%] flex-col items-center justify-center gap-0 overflow-hidden px-2 leading-tight text-amber-100 sm:gap-1">
         <button
           type="button"
           onClick={start}
-          className="cursor-pointer text-center text-2xl hover:text-amber-300"
+          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
         >
           1. Start YeeStone
         </button>
         <button
           type="button"
           onClick={() => setOverlay("how-to-play")}
-          className="cursor-pointer text-center text-2xl hover:text-amber-300"
+          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
         >
           2. How to Play
         </button>
         <button
           type="button"
           onClick={() => setOverlay("map")}
-          className="cursor-pointer text-center text-2xl hover:text-amber-300"
+          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
         >
           3. Map
         </button>
         <button
           type="button"
           onClick={() => setOverlay("quit")}
-          className="cursor-pointer text-center text-2xl hover:text-amber-300"
+          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
         >
           4. Quit
         </button>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 const BG_IMG_SRC = "/images/progress-flight-bg.png";
 const PLANE_IMG_SRC = "/images/progress-plane.png";
@@ -49,6 +49,18 @@ function laneY(lane: number) {
   return LANE_TOP + laneHeight * (lane + 0.5);
 }
 
+// Touch/mouse steering: maps a pointer's Y position to the nearest lane
+// (mirrors SkiRun.tsx's drag-to-position pointer handling, just quantized to
+// NUM_LANES discrete rows instead of a continuous X position) rather than
+// requiring the keyboard-only up/down that was the only way to play this on
+// a touchscreen before.
+function laneFromPointerY(clientY: number, rect: DOMRect) {
+  const canvasY = ((clientY - rect.top) / rect.height) * CANVAS_SIZE;
+  const laneHeight = (LANE_BOTTOM - LANE_TOP) / NUM_LANES;
+  const lane = Math.floor((canvasY - LANE_TOP) / laneHeight);
+  return Math.max(0, Math.min(NUM_LANES - 1, lane));
+}
+
 interface FlightObstacle {
   id: number;
   lane: number;
@@ -90,6 +102,7 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
     laneIndex: 1,
     planeY: laneY(1),
     keys: { up: false, down: false },
+    pointerActive: false,
     obstacles: [] as FlightObstacle[],
     nextObstacleId: 1,
     nextSpawnAt: 500,
@@ -371,11 +384,33 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
+  function handlePointerDown(e: PointerEvent<HTMLCanvasElement>) {
+    if (phase !== "running") return;
+    stateRef.current.pointerActive = true;
+    stateRef.current.laneIndex = laneFromPointerY(e.clientY, e.currentTarget.getBoundingClientRect());
+  }
+  function handlePointerMove(e: PointerEvent<HTMLCanvasElement>) {
+    if (!stateRef.current.pointerActive || phase !== "running") return;
+    stateRef.current.laneIndex = laneFromPointerY(e.clientY, e.currentTarget.getBoundingClientRect());
+  }
+  function handlePointerUp() {
+    stateRef.current.pointerActive = false;
+  }
+
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-black">
       <img src={BG_IMG_SRC} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
 
-      <canvas ref={canvasRef} width={CANVAS_SIZE} height={CANVAS_SIZE} className="absolute inset-0 h-full w-full" />
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_SIZE}
+        height={CANVAS_SIZE}
+        className="absolute inset-0 h-full w-full touch-none"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      />
 
       {phase === "countdown" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -404,7 +439,7 @@ function FlightRun({ durationMs, startSpawnPerSec, endSpawnPerSec, paused, onTic
       {phase === "running" && (
         <div className="absolute bottom-[3%] left-[3%] right-[3%] flex justify-between text-xs text-amber-100/80">
           <span>↑ / W</span>
-          <span>Up/Down arrows or W/S to switch lanes</span>
+          <span>Arrow keys, W/S, or drag to steer</span>
           <span>S / ↓</span>
         </div>
       )}

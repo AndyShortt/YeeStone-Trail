@@ -201,9 +201,9 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={cabinEveningImg} alt="Cabin evening" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[58%] flex h-[39%] w-[94%] flex-col justify-center gap-1 overflow-hidden px-2 text-lg leading-tight">
+      <div className="absolute left-[3%] top-[58%] flex h-[39%] w-[94%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-1 sm:text-lg">
         <p>EVENING AT THE CABIN</p>
-        <p className="text-base italic">Sore in odd places</p>
+        <p className="text-xs italic sm:text-base">Sore in odd places</p>
         <button
           type="button"
           onClick={() => setOverlay("dinner")}

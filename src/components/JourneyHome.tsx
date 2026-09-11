@@ -51,12 +51,12 @@ function JourneyHome({ playthrough, onUpdate }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={journeyHomeImg} alt="Denver Airport departures" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[3%] flex h-[10%] w-[94%] items-center justify-center overflow-hidden rounded bg-amber-100/85 text-center text-[2.25rem] leading-tight">
+      <div className="absolute left-[3%] top-[3%] flex h-[10%] w-[94%] items-center justify-center overflow-hidden rounded bg-amber-100/85 text-center text-base leading-tight sm:text-[2.25rem]">
         Denver Airport - Departures
       </div>
 
-      <div className="absolute left-[3%] top-[53%] flex h-[44%] w-[94%] flex-col justify-center gap-1 overflow-hidden px-4 text-lg leading-tight">
-        <p className="mb-1 text-center text-2xl">Final Results</p>
+      <div className="absolute left-[3%] top-[53%] flex h-[44%] w-[94%] flex-col justify-center gap-0.5 overflow-hidden px-4 text-xs leading-tight sm:gap-1 sm:text-lg">
+        <p className="mb-1 text-center text-base sm:text-2xl">Final Results</p>
         {getNameLines(playthrough).map((line, i) => (
           <p key={i}>{line}</p>
         ))}
@@ -68,7 +68,7 @@ function JourneyHome({ playthrough, onUpdate }: SegmentProps) {
         <button
           type="button"
           onClick={headHome}
-          className="mt-1 cursor-pointer self-center rounded border-2 border-amber-950 bg-amber-100/60 px-6 py-1 text-xl hover:bg-amber-100"
+          className="mt-1 cursor-pointer self-center rounded border-2 border-amber-950 bg-amber-100/60 px-6 py-1 text-sm hover:bg-amber-100 sm:text-xl"
         >
           Head Home
         </button>
