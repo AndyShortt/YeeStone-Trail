@@ -67,31 +67,38 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={cabinArrivalImg} alt="Cabin arrival" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-base leading-tight sm:text-[2rem] sm:leading-none">
-        Get Checked In and Ready for The Slopes Tomorrow
-      </div>
+      {/* Hidden whenever an overlay below is showing — both boxes reach
+          into the bottom 37.5% band every OverlayPanel occupies, so left
+          always-rendered they'd visibly collide with it. */}
+      {!entryMessage && !pickingSkiStyle && !message && (
+        <>
+          <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-base leading-tight sm:text-[2rem] sm:leading-none">
+            Get Checked In and Ready for The Slopes Tomorrow
+          </div>
 
-      <div className="absolute left-[2%] top-[65%] flex h-[32%] w-[96%] flex-col justify-center gap-1 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
-        <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
-          1. Check your status
-        </button>
-        <button type="button" onClick={() => setView("store")} className="cursor-pointer text-left hover:text-amber-700">
-          2. Visit Walter's stash
-        </button>
-        <button type="button" onClick={talkToBros} className="cursor-pointer text-left hover:text-amber-700">
-          3. Talk to the bros
-        </button>
-        <button
-          type="button"
-          onClick={() => setPickingSkiStyle(true)}
-          className="cursor-pointer text-left hover:text-amber-700"
-        >
-          {skiStyleLabel}
-        </button>
-        <button type="button" onClick={headToSlopes} className="cursor-pointer text-left hover:text-amber-700">
-          5. Rest and hit the slopes
-        </button>
-      </div>
+          <div className="absolute left-[2%] top-[65%] flex h-[32%] w-[96%] flex-col justify-center gap-1 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
+            <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
+              1. Check your status
+            </button>
+            <button type="button" onClick={() => setView("store")} className="cursor-pointer text-left hover:text-amber-700">
+              2. Visit Walter's stash
+            </button>
+            <button type="button" onClick={talkToBros} className="cursor-pointer text-left hover:text-amber-700">
+              3. Talk to the bros
+            </button>
+            <button
+              type="button"
+              onClick={() => setPickingSkiStyle(true)}
+              className="cursor-pointer text-left hover:text-amber-700"
+            >
+              {skiStyleLabel}
+            </button>
+            <button type="button" onClick={headToSlopes} className="cursor-pointer text-left hover:text-amber-700">
+              5. Rest and hit the slopes
+            </button>
+          </div>
+        </>
+      )}
 
       {entryMessage && <OverlayPanel body={entryMessage} onDismiss={() => setEntryMessage(null)} />}
 

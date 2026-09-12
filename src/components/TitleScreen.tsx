@@ -36,36 +36,44 @@ function TitleScreen({ playthrough, onUpdate }: SegmentProps) {
         draggable={false}
       />
 
-      <div className="absolute left-[4%] top-[76%] flex h-[19%] w-[92%] flex-col items-center justify-center gap-0 overflow-hidden px-2 leading-tight text-amber-100 sm:gap-1">
-        <button
-          type="button"
-          onClick={start}
-          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
-        >
-          1. Start YeeStone
-        </button>
-        <button
-          type="button"
-          onClick={() => setOverlay("how-to-play")}
-          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
-        >
-          2. How to Play
-        </button>
-        <button
-          type="button"
-          onClick={() => setOverlay("map")}
-          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
-        >
-          3. Map
-        </button>
-        <button
-          type="button"
-          onClick={() => setOverlay("quit")}
-          className="cursor-pointer text-center text-[0.7rem] hover:text-amber-300 sm:text-2xl"
-        >
-          4. Quit
-        </button>
-      </div>
+      {/* top/height pixel-measured against the art's actual black box
+          (segment-0-title-screen.png), which runs 73.8%-95.9% — not the
+          same as the old 76%-95% guess, which left real room unused.
+          Hidden whenever an overlay is showing — this box reaches into the
+          bottom 37.5% band every OverlayPanel occupies, so left
+          always-rendered it visibly collided with it. */}
+      {!overlay && (
+        <div className="absolute left-[4%] top-[74%] flex h-[22%] w-[92%] flex-col items-center justify-center gap-0 overflow-hidden px-2 leading-none text-amber-100 sm:gap-1 sm:leading-tight">
+          <button
+            type="button"
+            onClick={start}
+            className="cursor-pointer text-center text-[18px] hover:text-amber-300 sm:text-2xl"
+          >
+            1. Start YeeStone
+          </button>
+          <button
+            type="button"
+            onClick={() => setOverlay("how-to-play")}
+            className="cursor-pointer text-center text-[18px] hover:text-amber-300 sm:text-2xl"
+          >
+            2. How to Play
+          </button>
+          <button
+            type="button"
+            onClick={() => setOverlay("map")}
+            className="cursor-pointer text-center text-[18px] hover:text-amber-300 sm:text-2xl"
+          >
+            3. Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setOverlay("quit")}
+            className="cursor-pointer text-center text-[18px] hover:text-amber-300 sm:text-2xl"
+          >
+            4. Quit
+          </button>
+        </div>
+      )}
 
       {overlay === "how-to-play" && (
         <OverlayPanel

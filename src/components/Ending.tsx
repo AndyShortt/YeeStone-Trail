@@ -39,10 +39,11 @@ function Ending({ playthrough, onUpdate }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none">
       <img src={endingImg} alt="Trip complete" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[68%] top-[2%] flex h-[16%] w-[30%] flex-col items-center justify-center gap-0.5 overflow-hidden px-1 text-center text-sm leading-tight text-amber-950">
-        <p>{tier.name}</p>
-        <p className="text-xs">Bragging Rights Level:</p>
-        <p className="text-xs">{playthrough.vibePoints}/100</p>
+      {/* The art already has "FINAL SCORE" baked into the box header (see
+          special-ending-screen.png) — this just fills in the blank body
+          below it with the number, not a second competing label. */}
+      <div className="absolute left-[68%] top-[9.5%] flex h-[10%] w-[30%] items-center justify-center overflow-hidden px-1 text-center text-xl font-bold leading-none text-amber-950 sm:text-3xl">
+        {playthrough.vibePoints}/100
       </div>
 
       <OverlayPanel body={tagline} />

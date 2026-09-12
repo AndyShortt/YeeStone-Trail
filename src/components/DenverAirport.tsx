@@ -71,21 +71,26 @@ function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
 
       {/* § 8: regenerated as one simple panel (took 3 attempts — the model
           kept reproducing the old square+3-strips grid until the prompt
-          explicitly named and forbade that exact pattern). */}
-      <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
-        <button type="button" onClick={() => setOverlay("snack")} className="cursor-pointer text-left hover:text-amber-700">
-          1. Shop for snacks
-        </button>
-        <button type="button" onClick={headToParking} className="cursor-pointer text-left hover:text-amber-700">
-          2. Hit the road
-        </button>
-        <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
-          3. Check status
-        </button>
-        <button type="button" onClick={talkToCrew} className="cursor-pointer text-left hover:text-amber-700">
-          4. Tips from the guys
-        </button>
-      </div>
+          explicitly named and forbade that exact pattern). Hidden whenever
+          an overlay is showing — this box reaches into the bottom 37.5%
+          band every OverlayPanel occupies, so left always-rendered it
+          visibly collided with it. */}
+      {!entryMessage && overlay === null && !message && (
+        <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
+          <button type="button" onClick={() => setOverlay("snack")} className="cursor-pointer text-left hover:text-amber-700">
+            1. Shop for snacks
+          </button>
+          <button type="button" onClick={headToParking} className="cursor-pointer text-left hover:text-amber-700">
+            2. Hit the road
+          </button>
+          <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
+            3. Check status
+          </button>
+          <button type="button" onClick={talkToCrew} className="cursor-pointer text-left hover:text-amber-700">
+            4. Tips from the guys
+          </button>
+        </div>
+      )}
 
       {entryMessage && (
         <OverlayPanel body={entryMessage} onDismiss={() => setEntryMessage(null)} />

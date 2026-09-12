@@ -201,40 +201,46 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={cabinEveningImg} alt="Cabin evening" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[3%] top-[58%] flex h-[39%] w-[94%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-1 sm:text-lg">
-        <p>EVENING AT THE CABIN</p>
-        <p className="text-xs italic sm:text-base">Sore in odd places</p>
-        <button
-          type="button"
-          onClick={() => setOverlay("dinner")}
-          disabled={foodPurchases >= FOOD_PURCHASE_CAP}
-          className="mt-0.5 cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          1. Have Dinner with the Crew
-        </button>
-        <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
-          2. Check Status
-        </button>
-        <button
-          type="button"
-          onClick={() => setOverlay("injury")}
-          disabled={!playthrough.injury || injuryCheckUsed}
-          className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          3. Check on Injuries
-        </button>
-        <button
-          type="button"
-          onClick={watchDukeUnc}
-          disabled={playthrough.dukeUncResolved || playthrough.currentSkiDay !== "friday"}
-          className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          4. Watch UNC vs DUKE
-        </button>
-        <button type="button" onClick={restForNight} className="cursor-pointer text-left hover:text-amber-700">
-          5. Rest and hit the slopes
-        </button>
-      </div>
+      {/* Hidden whenever an overlay below is showing — this box reaches
+          into the bottom 37.5% band every OverlayPanel (including the
+          global Check Status one) occupies, so left always-rendered it
+          visibly collided with it. */}
+      {!entryMessage && !overlay && !message && (
+        <div className="absolute left-[3%] top-[58%] flex h-[39%] w-[94%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-1 sm:text-lg">
+          <p>EVENING AT THE CABIN</p>
+          <p className="text-xs italic sm:text-base">Sore in odd places</p>
+          <button
+            type="button"
+            onClick={() => setOverlay("dinner")}
+            disabled={foodPurchases >= FOOD_PURCHASE_CAP}
+            className="mt-0.5 cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            1. Have Dinner with the Crew
+          </button>
+          <button type="button" onClick={() => onShowOverlay?.("status")} className="cursor-pointer text-left hover:text-amber-700">
+            2. Check Status
+          </button>
+          <button
+            type="button"
+            onClick={() => setOverlay("injury")}
+            disabled={!playthrough.injury || injuryCheckUsed}
+            className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            3. Check on Injuries
+          </button>
+          <button
+            type="button"
+            onClick={watchDukeUnc}
+            disabled={playthrough.dukeUncResolved || playthrough.currentSkiDay !== "friday"}
+            className="cursor-pointer text-left hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            4. Watch UNC vs DUKE
+          </button>
+          <button type="button" onClick={restForNight} className="cursor-pointer text-left hover:text-amber-700">
+            5. Rest and hit the slopes
+          </button>
+        </div>
+      )}
 
       {entryMessage && (
         <OverlayPanel body={entryMessage} onDismiss={() => setEntryMessage(null)} />

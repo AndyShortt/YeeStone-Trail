@@ -232,32 +232,39 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
     <div className="relative mx-auto aspect-square w-full max-w-xl select-none text-amber-950">
       <img src={skiDayImg} alt="Ski day" className="h-full w-full" draggable={false} />
 
-      <div className="absolute left-[15%] top-[35%] flex h-[31%] w-[73%] flex-col items-center justify-center gap-1 overflow-hidden px-2 text-center text-base leading-tight">
-        <p className="text-xl">{dayLabel} MORNING</p>
-        <p className="italic">Navigate down the slope!</p>
-        <div className="grid w-full grid-cols-2 grid-rows-2 gap-x-2 gap-y-1 text-left">
-          <button
-            type="button"
-            onClick={() => setPickingRoute(true)}
-            className="cursor-pointer hover:text-amber-700"
-          >
-            1. Start Run
-          </button>
-          <button
-            type="button"
-            onClick={() => onShowOverlay?.("status")}
-            className="cursor-pointer hover:text-amber-700"
-          >
-            2. Check Status
-          </button>
-          <button type="button" onClick={hotTub} className="cursor-pointer hover:text-amber-700">
-            3. Hot Tub
-          </button>
-          <button type="button" onClick={skipToday} className="cursor-pointer hover:text-amber-700">
-            4. Skip today
-          </button>
+      {/* Hidden whenever any overlay below is showing — this box's own
+          bottom edge (35%+31%=66%) reaches into the same bottom band every
+          OverlayPanel occupies (bottom 37.5%, i.e. 62.5%-100%), so left
+          always-rendered it visibly collided with the leaderboard/result
+          panels once they were tall enough to actually reach that high. */}
+      {!entryMessage && !pickingRoute && !skipMessage && !resultStage && (
+        <div className="absolute left-[15%] top-[35%] flex h-[31%] w-[73%] flex-col items-center justify-center gap-1 overflow-hidden px-2 text-center text-base leading-tight">
+          <p className="text-xl">{dayLabel} MORNING</p>
+          <p className="italic">Navigate down the slope!</p>
+          <div className="grid w-full grid-cols-2 grid-rows-2 gap-x-2 gap-y-1 text-left">
+            <button
+              type="button"
+              onClick={() => setPickingRoute(true)}
+              className="cursor-pointer hover:text-amber-700"
+            >
+              1. Start Run
+            </button>
+            <button
+              type="button"
+              onClick={() => onShowOverlay?.("status")}
+              className="cursor-pointer hover:text-amber-700"
+            >
+              2. Check Status
+            </button>
+            <button type="button" onClick={hotTub} className="cursor-pointer hover:text-amber-700">
+              3. Hot Tub
+            </button>
+            <button type="button" onClick={skipToday} className="cursor-pointer hover:text-amber-700">
+              4. Skip today
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {entryMessage && (
         <OverlayPanel body={entryMessage} onDismiss={() => setEntryMessage(null)} />
