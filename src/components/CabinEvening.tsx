@@ -26,7 +26,7 @@ type View = "main" | "duke-unc";
 // reused for the doctor-visit/rest-it-off outcomes too.
 type DukeUncCameo = "celebrating" | "defeated" | null;
 
-function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
+function CabinEvening({ playthrough, onUpdate, onShowOverlay, activeOverlay }: SegmentProps) {
   const [view, setView] = useState<View>("main");
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -204,8 +204,9 @@ function CabinEvening({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
       {/* Hidden whenever an overlay below is showing — this box reaches
           into the bottom 37.5% band every OverlayPanel (including the
           global Check Status one) occupies, so left always-rendered it
-          visibly collided with it. */}
-      {!entryMessage && !overlay && !message && (
+          visibly collided with it. activeOverlay covers the global case,
+          which has no local state here to react to otherwise. */}
+      {!entryMessage && !overlay && !message && !activeOverlay && (
         <div className="absolute left-[3%] top-[58%] flex h-[39%] w-[94%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-1 sm:text-lg">
           <p>EVENING AT THE CABIN</p>
           <p className="text-xs italic sm:text-base">Sore in odd places</p>

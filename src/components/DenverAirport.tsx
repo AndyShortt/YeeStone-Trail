@@ -13,7 +13,7 @@ const FOOD_PURCHASE_CAP = 2;
 
 type Overlay = "entry-events" | "snack" | null;
 
-function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
+function DenverAirport({ playthrough, onUpdate, onShowOverlay, activeOverlay }: SegmentProps) {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [entryMessage, setEntryMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -74,8 +74,9 @@ function DenverAirport({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
           explicitly named and forbade that exact pattern). Hidden whenever
           an overlay is showing — this box reaches into the bottom 37.5%
           band every OverlayPanel occupies, so left always-rendered it
-          visibly collided with it. */}
-      {!entryMessage && overlay === null && !message && (
+          visibly collided with it. activeOverlay covers the global Check
+          Status case, which has no local state here to react to otherwise. */}
+      {!entryMessage && overlay === null && !message && !activeOverlay && (
         <div className="absolute left-[2%] top-[73%] flex h-[25%] w-[96%] flex-col justify-center gap-0.5 overflow-hidden px-2 text-sm leading-tight sm:gap-2 sm:text-xl">
           <button type="button" onClick={() => setOverlay("snack")} className="cursor-pointer text-left hover:text-amber-700">
             1. Shop for snacks

@@ -12,7 +12,7 @@ interface OverlayPanelProps {
   body?: ReactNode | ReactNode[];
   options?: OverlayPanelOption[];
   onDismiss?: () => void;
-  /** Overrides the body paragraphs' text-size class (default "text-lg") for this call only. */
+  /** Overrides the body paragraphs' text-size class (default "text-sm sm:text-lg") for this call only. */
   bodyTextClassName?: string;
   /**
    * Floors the panel's height above its normal aspect-[1024/384]-derived
@@ -25,7 +25,7 @@ interface OverlayPanelProps {
   minHeightPx?: number;
 }
 
-function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg", minHeightPx }: OverlayPanelProps) {
+function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-sm sm:text-lg", minHeightPx }: OverlayPanelProps) {
   const paragraphs = body === undefined ? [] : Array.isArray(body) ? body : [body];
   const hasOptions = Boolean(options && options.length > 0);
 
@@ -85,7 +85,7 @@ function OverlayPanel({ body, options, onDismiss, bodyTextClassName = "text-lg",
                   event.stopPropagation();
                   option.onSelect();
                 }}
-                className="cursor-pointer text-left text-lg leading-tight hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="cursor-pointer text-left text-sm leading-tight hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
               >
                 {i + 1}. {option.label}
               </button>

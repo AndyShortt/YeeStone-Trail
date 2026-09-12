@@ -16,7 +16,7 @@ const SKI_STYLE_LABEL: Record<string, string> = {
   "full-send": "Full Send",
 };
 
-function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
+function CabinArrival({ playthrough, onUpdate, onShowOverlay, activeOverlay }: SegmentProps) {
   const [view, setView] = useState<View>("main");
   const [message, setMessage] = useState<string | null>(null);
   const [entryMessage, setEntryMessage] = useState<string | null>(null);
@@ -69,8 +69,11 @@ function CabinArrival({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
 
       {/* Hidden whenever an overlay below is showing — both boxes reach
           into the bottom 37.5% band every OverlayPanel occupies, so left
-          always-rendered they'd visibly collide with it. */}
-      {!entryMessage && !pickingSkiStyle && !message && (
+          always-rendered they'd visibly collide with it. Also hidden for the
+          shared global Check Status overlay (activeOverlay), which renders on
+          top of this same screen from App.tsx and used to visibly double up
+          with this box since it has no local state of its own to react to. */}
+      {!entryMessage && !pickingSkiStyle && !message && !activeOverlay && (
         <>
           <div className="absolute left-[3%] top-[53.5%] flex h-[11.5%] w-[94%] items-center justify-center overflow-hidden text-center text-base leading-tight sm:text-[2rem] sm:leading-none">
             Get Checked In and Ready for The Slopes Tomorrow

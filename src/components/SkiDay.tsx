@@ -50,7 +50,7 @@ function formatLeaderboardLines(board: LeaderboardResult): string[] {
 
 type ResultStage = "puddle" | "outcome" | "leaderboard" | null;
 
-function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
+function SkiDay({ playthrough, onUpdate, onShowOverlay, activeOverlay }: SegmentProps) {
   const [pickingRoute, setPickingRoute] = useState(false);
   const [entryMessage, setEntryMessage] = useState<string | null>(null);
   const [skipMessage, setSkipMessage] = useState<string | null>(null);
@@ -221,6 +221,7 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
           route={activeRun.route}
           skiStyle={playthrough.skiStyle ?? "balanced"}
           riskPercent={activeRun.riskPercent}
+          bonusObstacles={playthrough.currentSkiDay !== "thursday"}
           onCrash={handleCrash}
           onComplete={handleRunComplete}
         />
@@ -236,8 +237,9 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
           bottom edge (35%+31%=66%) reaches into the same bottom band every
           OverlayPanel occupies (bottom 37.5%, i.e. 62.5%-100%), so left
           always-rendered it visibly collided with the leaderboard/result
-          panels once they were tall enough to actually reach that high. */}
-      {!entryMessage && !pickingRoute && !skipMessage && !resultStage && (
+          panels once they were tall enough to actually reach that high.
+          activeOverlay covers the global Check Status case the same way. */}
+      {!entryMessage && !pickingRoute && !skipMessage && !resultStage && !activeOverlay && (
         <div className="absolute left-[15%] top-[35%] flex h-[31%] w-[73%] flex-col items-center justify-center gap-1 overflow-hidden px-2 text-center text-base leading-tight">
           <p className="text-xl">{dayLabel} MORNING</p>
           <p className="italic">Navigate down the slope!</p>
@@ -284,17 +286,38 @@ function SkiDay({ playthrough, onUpdate, onShowOverlay }: SegmentProps) {
         <OverlayPanel body={skipMessage} onDismiss={dismissSkipMessage} />
       )}
 
-      {!entryMessage && !pickingRoute && !skipMessage && resultStage === "puddle" && resultData && (
-        <OverlayPanel body={resultData.puddleLines} onDismiss={() => setResultStage("outcome")} />
-      )}
-      {!entryMessage && !pickingRoute && !skipMessage && resultStage === "outcome" && resultData && (
-        <OverlayPanel body={resultData.outcomeLines} onDismiss={() => setResultStage("leaderboard")} />
-      )}
-      {!entryMessage && !pickingRoute && !skipMessage && resultStage === "leaderboard" && resultData && (
-        <OverlayPanel
-          body={resultData.leaderboardLines}
-          options={[{ label: "Continue", onSelect: finishToEvening }]}
-        />
+      {/* § run-results redesign: shown on the same baked-in sign panel the
+          morning menu uses, instead of a separate bottom OverlayPanel — that
+          panel had no headroom to spare for a 4-entry leaderboard plus a
+          Continue option at the panel's mobile-scaled size (fixed text size
+          against a much smaller absolute container height on phones). */}
+      {!entryMessage && !pickingRoute && !skipMessage && resultStage && resultData && (
+        <div className="absolute left-[15%] top-[35%] flex h-[31%] w-[73%] flex-col items-center justify-center gap-0.5 overflow-hidden px-2 text-center text-[0.65rem] leading-tight sm:text-sm">
+          {resultStage === "puddle" &&
+            resultData.puddleLines.map((line, i) => <p key={i}>{line}</p>)}
+          {resultStage === "outcome" &&
+            resultData.outcomeLines.map((line, i) => <p key={i}>{line}</p>)}
+          {resultStage === "leaderboard" && (
+            <div className="w-full text-left">
+              {resultData.leaderboardLines.map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={
+              resultStage === "puddle"
+                ? () => setResultStage("outcome")
+                : resultStage === "outcome"
+                  ? () => setResultStage("leaderboard")
+                  : finishToEvening
+            }
+            className="mt-0.5 cursor-pointer underline hover:text-amber-700"
+          >
+            Continue
+          </button>
+        </div>
       )}
     </div>
   );

@@ -91,6 +91,7 @@ function App() {
           playthrough={playthrough}
           onUpdate={setPlaythrough}
           onShowOverlay={setGlobalOverlay}
+          activeOverlay={globalOverlay}
         />
 
         {globalOverlay === "map" && (

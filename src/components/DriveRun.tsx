@@ -467,7 +467,10 @@ function DriveRun({ firstLegMs, secondLegMs, startSpawnPerSec, endSpawnPerSec, p
       )}
 
       {phase === "running" && (
-        <div className="absolute bottom-[3%] left-[3%] right-[3%] flex justify-between text-xs text-amber-100/80">
+        <div
+          className="absolute bottom-[16%] left-[3%] right-[3%] flex justify-between text-xs text-amber-100/90"
+          style={{ textShadow: "1px 1px 0 #000" }}
+        >
           <span>↑ / W</span>
           <span>Arrow keys, W/S, or drag to steer</span>
           <span>S / ↓</span>

@@ -8,6 +8,12 @@ const TREE_IMG_SRC = "/images/minigame-ski-tree.png";
 const ROCK_IMG_SRC = "/images/minigame-ski-rock.png";
 const YETI_IMG_SRC = "/images/minigame-ski-yeti.png";
 const CRASHED_SNOWBOARDER_IMG_SRC = "/images/minigame-ski-crashed-snowboarder.png";
+// Friday/Saturday-only cameo obstacles (see `bonusObstacles` prop) — the same
+// three cabin cameo characters, reskinned as surprise obstacles for variety
+// on the later ski days.
+const COWBOY_JONATHAN_IMG_SRC = "/images/minigame-ski-cowboy-jonathan.png";
+const GUITARIST_BEN_IMG_SRC = "/images/minigame-ski-guitarist-ben.png";
+const CART_WALTER_IMG_SRC = "/images/minigame-ski-cart-walter.png";
 
 const CANVAS_SIZE = 500;
 // 3 labels x 1000ms = a 3-second countdown — was 550ms/label (1.65s total),
@@ -28,17 +34,25 @@ const BASE_TRAVEL_MS = 2500;
 const NUM_LANES: number = 5;
 
 const OBSTACLE_TYPES = ["tree", "rock", "rival", "yeti", "crashed-snowboarder"] as const;
-type ObstacleType = (typeof OBSTACLE_TYPES)[number];
+// Friday/Saturday only, mixed into OBSTACLE_TYPES when `bonusObstacles` is
+// set — see the prop doc comment on SkiRunProps below.
+const BONUS_OBSTACLE_TYPES = ["cowboy-jonathan", "guitarist-ben", "cart-walter"] as const;
+type ObstacleType = (typeof OBSTACLE_TYPES)[number] | (typeof BONUS_OBSTACLE_TYPES)[number];
 
 // Per-type draw size / hit radius at full scale (et=1, right at the player).
 // Yeti reads better bigger (it's the "big goofy monster" of the set); the
-// crashed snowboarder is a sprawled body+board, wider than a tree/rock.
+// crashed snowboarder is a sprawled body+board, wider than a tree/rock. The
+// cameo obstacles are skier-posed like rival (similar size) except the
+// shopping cart, which reads as a wider, front-facing rig.
 const OBSTACLE_VISUAL: Record<ObstacleType, { size: number; hitRadius: number }> = {
   tree: { size: 60, hitRadius: 17 },
   rock: { size: 58, hitRadius: 17 },
   rival: { size: 62, hitRadius: 17 },
   yeti: { size: 76, hitRadius: 21 },
   "crashed-snowboarder": { size: 68, hitRadius: 19 },
+  "cowboy-jonathan": { size: 62, hitRadius: 17 },
+  "guitarist-ben": { size: 62, hitRadius: 17 },
+  "cart-walter": { size: 72, hitRadius: 20 },
 };
 
 interface Obstacle {
@@ -65,6 +79,11 @@ interface SkiRunProps {
   route: Route;
   skiStyle: SkiStyle;
   riskPercent: number;
+  /** Friday/Saturday only — mixes the 3 cabin-cameo obstacles (cowboy
+   * Jonathan, guitarist Ben, cart Walter) into the spawn pool alongside the
+   * regular 5, for variety on the later ski days. Thursday stays the
+   * original 5-type pool. */
+  bonusObstacles?: boolean;
   /**
    * Fired once per crash (there can be several in one run now). The parent
    * owns the actual injury roll/escalation (it already has the player's
@@ -90,7 +109,7 @@ function laneTargetX(lane: number) {
   return CENTER_X - BOTTOM_HALF_WIDTH + t * BOTTOM_HALF_WIDTH * 2;
 }
 
-function SkiRun({ route, skiStyle, riskPercent, onCrash, onComplete }: SkiRunProps) {
+function SkiRun({ route, skiStyle, riskPercent, bonusObstacles, onCrash, onComplete }: SkiRunProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const timeTextRef = useRef<HTMLSpanElement>(null);
   const feetTextRef = useRef<HTMLSpanElement>(null);
@@ -131,6 +150,9 @@ function SkiRun({ route, skiStyle, riskPercent, onCrash, onComplete }: SkiRunPro
       rock: ROCK_IMG_SRC,
       yeti: YETI_IMG_SRC,
       "crashed-snowboarder": CRASHED_SNOWBOARDER_IMG_SRC,
+      "cowboy-jonathan": COWBOY_JONATHAN_IMG_SRC,
+      "guitarist-ben": GUITARIST_BEN_IMG_SRC,
+      "cart-walter": CART_WALTER_IMG_SRC,
     };
     let cancelled = false;
     let loadedCount = 0;
@@ -224,7 +246,8 @@ function SkiRun({ route, skiStyle, riskPercent, onCrash, onComplete }: SkiRunPro
         return;
       }
 
-      const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+      const pool: readonly ObstacleType[] = bonusObstacles ? [...OBSTACLE_TYPES, ...BONUS_OBSTACLE_TYPES] : OBSTACLE_TYPES;
+      const type = pool[Math.floor(Math.random() * pool.length)];
       s.obstacles.push({
         id: s.nextObstacleId++,
         lane: chosenLane,
@@ -368,7 +391,7 @@ function SkiRun({ route, skiStyle, riskPercent, onCrash, onComplete }: SkiRunPro
 
     s.rafId = window.setInterval(tick, 16);
     return () => clearInterval(s.rafId);
-  }, [phase, route, skiStyle, riskPercent]);
+  }, [phase, route, skiStyle, riskPercent, bonusObstacles]);
 
   useEffect(() => {
     if (phase !== "crashed" && phase !== "finished") return;

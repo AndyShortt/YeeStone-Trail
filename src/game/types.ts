@@ -130,4 +130,6 @@ export interface SegmentProps {
   onUpdate: (updater: (prev: GamePlaythrough) => GamePlaythrough) => void;
   /** Triggers the shared Map/Status overlay (§ 2) from within a segment's own menu. */
   onShowOverlay?: (overlay: "map" | "status") => void;
+  /** The currently-open shared overlay, if any — segments hide their own bottom-anchored content while it's set, since it renders on top of them. */
+  activeOverlay?: "map" | "status" | null;
 }
